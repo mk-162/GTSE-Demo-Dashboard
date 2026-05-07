@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRegion } from "@/components/region-context";
 import { PageShell } from "@/components/page-shell";
 import { InsightBanner } from "@/components/insight-banner";
@@ -7,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { COMPANIES_UK, COMPANIES_US, insightOf, SKU_BY_CODE, type Company } from "@/lib/mock-data";
 import { BarSeriesChart } from "@/components/charts/bar-chart";
 import { DonutChart } from "@/components/charts/donut-chart";
-import { COMPANIES_UK, COMPANIES_US, insightOf, SKU_BY_CODE, type Company } from "@/lib/mock-data";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 function daysVsPredicted(c: Company): number {
@@ -47,8 +48,10 @@ function ReorderTable({ rows, region }: { rows: Company[]; region: "UK" | "US" }
               return (
                 <TableRow key={c.id}>
                   <TableCell>
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-muted-foreground">{c.industry}</div>
+                    <Link href={`/account/${c.id}`} className="block hover:text-gtse-orange">
+                      <div className="font-medium">{c.name}</div>
+                      <div className="text-xs text-muted-foreground">{c.industry}</div>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{c.ownerName}</TableCell>
                   <TableCell className="text-right">{formatDate(c.predictedNextOrderDate)}</TableCell>

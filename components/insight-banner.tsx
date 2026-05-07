@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { companyByName } from "@/lib/mock-data";
 
 type Props = {
   bodyMarkdown: string;
@@ -24,7 +26,8 @@ function fmtTime(iso: string): string {
   return `${time} on ${date}`;
 }
 
-// Tiny inline markdown — supports **bold** and *italic* only.
+// Tiny inline markdown — supports **bold** and *italic*. Bold spans that match
+// a known company name become clickable links to the account-detail page.
 function renderInline(text: string): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let i = 0;
@@ -33,7 +36,21 @@ function renderInline(text: string): React.ReactNode[] {
     if (text.startsWith("**", i)) {
       const end = text.indexOf("**", i + 2);
       if (end === -1) { out.push(text.slice(i)); break; }
-      out.push(<strong key={key++} className="font-semibold text-foreground">{text.slice(i + 2, end)}</strong>);
+      const inner = text.slice(i + 2, end);
+      const company = companyByName(inner);
+      if (company) {
+        out.push(
+          <Link
+            key={key++}
+            href={`/account/${company.id}`}
+            className="font-semibold text-foreground underline decoration-gtse-orange/40 decoration-2 underline-offset-2 hover:decoration-gtse-orange"
+          >
+            {inner}
+          </Link>,
+        );
+      } else {
+        out.push(<strong key={key++} className="font-semibold text-foreground">{inner}</strong>);
+      }
       i = end + 2;
     } else if (text[i] === "*") {
       const end = text.indexOf("*", i + 1);

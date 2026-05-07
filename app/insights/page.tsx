@@ -1,13 +1,14 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { InsightBanner } from "@/components/insight-banner";
-import { INSIGHTS, insightOf, type InsightType } from "@/lib/mock-data";
+import { INSIGHTS, insightOf, companyByName, type InsightType } from "@/lib/mock-data";
 
 const TYPE_LABEL: Record<InsightType, string> = {
   kpi_summary: "KPI summary",
@@ -28,7 +29,21 @@ function InsightParagraph({ text }: { text: string }) {
     if (text.startsWith("**", i)) {
       const end = text.indexOf("**", i + 2);
       if (end === -1) { out.push(text.slice(i)); break; }
-      out.push(<strong key={key++} className="font-semibold text-foreground">{text.slice(i + 2, end)}</strong>);
+      const inner = text.slice(i + 2, end);
+      const company = companyByName(inner);
+      if (company) {
+        out.push(
+          <Link
+            key={key++}
+            href={`/account/${company.id}`}
+            className="font-semibold text-foreground underline decoration-gtse-orange/40 decoration-2 underline-offset-2 hover:decoration-gtse-orange"
+          >
+            {inner}
+          </Link>,
+        );
+      } else {
+        out.push(<strong key={key++} className="font-semibold text-foreground">{inner}</strong>);
+      }
       i = end + 2;
     } else if (text[i] === "*") {
       const end = text.indexOf("*", i + 1);

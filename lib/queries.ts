@@ -44,6 +44,12 @@ export function filterCompanies(criteria: TargetCriteria): Company[] {
     if (criteria.whaleFlag !== undefined && c.whaleFlag !== criteria.whaleFlag) return false;
     if (criteria.buyerIntentActive !== undefined && c.buyerIntentActive !== criteria.buyerIntentActive) return false;
 
+    if (criteria.nameContains && criteria.nameContains.trim().length > 0) {
+      if (!c.name.toLowerCase().includes(criteria.nameContains.toLowerCase().trim())) return false;
+    }
+    if (criteria.rfmScoreR !== undefined && c.rfmScores.r !== criteria.rfmScoreR) return false;
+    if (criteria.rfmScoreF !== undefined && c.rfmScores.f !== criteria.rfmScoreF) return false;
+
     return true;
   });
 }

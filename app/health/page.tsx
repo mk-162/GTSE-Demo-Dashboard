@@ -1,15 +1,18 @@
 "use client";
 
-import { Check } from "lucide-react";
+import Link from "next/link";
+import { Check, Download } from "lucide-react";
 import { useRegion } from "@/components/region-context";
 import { PageShell } from "@/components/page-shell";
 import { InsightBanner } from "@/components/insight-banner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { DonutChart } from "@/components/charts/donut-chart";
 import { LineSeriesChart } from "@/components/charts/line-chart";
 import { HealthBadge } from "@/components/health-badge";
 import { COMPANIES_UK, COMPANIES_US, insightOf, type Company } from "@/lib/mock-data";
+import { targetsUrl } from "@/lib/criteria-url";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
 function compositeSignals(c: Company) {
@@ -111,9 +114,16 @@ export default function HealthPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Companies that turned amber today</CardTitle>
-          <CardDescription>Composite signal breakdown — checkmarks show which factors flagged.</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle>Companies that turned amber today</CardTitle>
+            <CardDescription>Composite signal breakdown — checkmarks show which factors flagged.</CardDescription>
+          </div>
+          <Button asChild size="sm" className="bg-gtse-orange hover:bg-gtse-orange-dark">
+            <Link href={targetsUrl({ region, healthBands: ["amber"] })}>
+              <Download className="h-3.5 w-3.5" /> All amber as list
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -135,8 +145,10 @@ export default function HealthPage() {
                 return (
                   <TableRow key={c.id}>
                     <TableCell>
-                      <div className="font-medium">{c.name}</div>
-                      <div className="text-xs text-muted-foreground">{c.industry}</div>
+                      <Link href={`/account/${c.id}`} className="block hover:text-gtse-orange">
+                        <div className="font-medium">{c.name}</div>
+                        <div className="text-xs text-muted-foreground">{c.industry}</div>
+                      </Link>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{c.ownerName}</TableCell>
                     <TableCell className="text-right">{formatCurrency(c.ltmRevenue, region)}</TableCell>
@@ -154,9 +166,16 @@ export default function HealthPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Companies that turned red today</CardTitle>
-          <CardDescription>Ranked by historical revenue — fix the leakiest first.</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle>Companies that turned red today</CardTitle>
+            <CardDescription>Ranked by historical revenue — fix the leakiest first.</CardDescription>
+          </div>
+          <Button asChild size="sm" className="bg-gtse-orange hover:bg-gtse-orange-dark">
+            <Link href={targetsUrl({ region, healthBands: ["red"] })}>
+              <Download className="h-3.5 w-3.5" /> All red as list
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -179,8 +198,10 @@ export default function HealthPage() {
                 return (
                   <TableRow key={c.id}>
                     <TableCell>
-                      <div className="font-medium">{c.name}</div>
-                      <div className="text-xs text-muted-foreground">{c.industry}</div>
+                      <Link href={`/account/${c.id}`} className="block hover:text-gtse-orange">
+                        <div className="font-medium">{c.name}</div>
+                        <div className="text-xs text-muted-foreground">{c.industry}</div>
+                      </Link>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{c.ownerName}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(c.lifetimeRevenue, region)}</TableCell>

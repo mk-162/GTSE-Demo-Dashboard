@@ -1,12 +1,16 @@
 "use client";
 
+import Link from "next/link";
+import { Download } from "lucide-react";
 import { useRegion } from "@/components/region-context";
 import { PageShell } from "@/components/page-shell";
 import { InsightBanner } from "@/components/insight-banner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { BarSeriesChart } from "@/components/charts/bar-chart";
 import { COMPANIES_UK, COMPANIES_US, insightOf, SKU_BY_CODE, type Company } from "@/lib/mock-data";
+import { targetsUrl } from "@/lib/criteria-url";
 import { formatCurrency } from "@/lib/utils";
 
 function whitespaceValue(c: Company): number {
@@ -64,11 +68,23 @@ export default function CrossSellPage() {
       />
 
       <Card>
-        <CardHeader>
-          <CardTitle>Top 30 accounts by whitespace opportunity</CardTitle>
-          <CardDescription>
-            Scoring favours active accounts with growing baskets. Estimated whitespace = peer-basket-implied annual revenue if missing SKUs attached.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle>Top 30 accounts by whitespace opportunity</CardTitle>
+            <CardDescription>
+              Scoring favours active accounts with growing baskets. Estimated whitespace = peer-basket-implied annual revenue if missing SKUs attached.
+            </CardDescription>
+          </div>
+          <Button asChild size="sm" className="bg-gtse-orange hover:bg-gtse-orange-dark">
+            <Link href={targetsUrl({
+              region,
+              healthBands: ["green", "amber"],
+              lifetimeOrders: { min: 5, max: 200 },
+              lapseRatio: { min: 0, max: 1.5 },
+            })}>
+              <Download className="h-3.5 w-3.5" /> Open as list / export
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -85,8 +101,10 @@ export default function CrossSellPage() {
               {candidates.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-muted-foreground">{c.industry} · LTM {formatCurrency(c.ltmRevenue, region)}</div>
+                    <Link href={`/account/${c.id}`} className="block hover:text-gtse-orange">
+                      <div className="font-medium">{c.name}</div>
+                      <div className="text-xs text-muted-foreground">{c.industry} · LTM {formatCurrency(c.ltmRevenue, region)}</div>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{c.ownerName}</TableCell>
                   <TableCell>

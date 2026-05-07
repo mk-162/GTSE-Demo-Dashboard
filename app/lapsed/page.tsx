@@ -1,13 +1,17 @@
 "use client";
 
+import Link from "next/link";
+import { Download } from "lucide-react";
 import { useRegion } from "@/components/region-context";
 import { PageShell } from "@/components/page-shell";
 import { InsightBanner } from "@/components/insight-banner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { BarSeriesChart } from "@/components/charts/bar-chart";
 import { lapsedTier, COMPANIES_UK, COMPANIES_US, insightOf } from "@/lib/mock-data";
+import { targetsUrl } from "@/lib/criteria-url";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 function reactivationLikelihood(c: { healthScore: number; lifetimeRevenue: number; daysSinceLastOrder: number; lifetimeOrders: number }): number {
@@ -137,9 +141,16 @@ export default function LapsedPage() {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Top 50 lapsed by historical value</CardTitle>
-          <CardDescription>Sorted by lifetime revenue. Reactivation likelihood is a composite score from health, history, and recency of lapse.</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle>Top 50 lapsed by historical value</CardTitle>
+            <CardDescription>Sorted by lifetime revenue. Reactivation likelihood is a composite score from health, history, and recency of lapse.</CardDescription>
+          </div>
+          <Button asChild size="sm" className="bg-gtse-orange hover:bg-gtse-orange-dark">
+            <Link href={targetsUrl({ region, lapseRatio: { min: 1.5, max: 10 } })}>
+              <Download className="h-3.5 w-3.5" /> Open as list / export
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -165,8 +176,10 @@ export default function LapsedPage() {
                 return (
                   <TableRow key={c.id}>
                     <TableCell>
-                      <div className="font-medium">{c.name}</div>
-                      <div className="text-xs text-muted-foreground">{c.industry}</div>
+                      <Link href={`/account/${c.id}`} className="block hover:text-gtse-orange">
+                        <div className="font-medium">{c.name}</div>
+                        <div className="text-xs text-muted-foreground">{c.industry}</div>
+                      </Link>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{c.ownerName}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(c.lifetimeRevenue, region)}</TableCell>

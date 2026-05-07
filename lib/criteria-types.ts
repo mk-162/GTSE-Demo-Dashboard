@@ -34,6 +34,13 @@ export type TargetCriteria = {
   // Boolean flags — undefined = no filter
   whaleFlag?: boolean;
   buyerIntentActive?: boolean;
+
+  // Free-text name search (case-insensitive substring match).
+  nameContains?: string;
+
+  // Exact RFM cell match — used by RFM heatmap drill-throughs.
+  rfmScoreR?: 1 | 2 | 3 | 4 | 5;
+  rfmScoreF?: 1 | 2 | 3 | 4 | 5;
 };
 
 export const EMPTY_CRITERIA: TargetCriteria = {

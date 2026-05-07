@@ -1,17 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { ExternalLink } from "lucide-react";
+import Link from "next/link";
+import { Download } from "lucide-react";
 import { useRegion } from "@/components/region-context";
 import { PageShell } from "@/components/page-shell";
 import { InsightBanner } from "@/components/insight-banner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DonutChart } from "@/components/charts/donut-chart";
 import { HealthBadge, LapseBadge } from "@/components/health-badge";
 import { topNByLtmRevenue, insightOf, COMPANIES_UK, COMPANIES_US, type Company } from "@/lib/mock-data";
+import { targetsUrl } from "@/lib/criteria-url";
 import { formatCurrency, formatPct, formatDate } from "@/lib/utils";
 
 type SortKey = "name" | "owner" | "ltmRevenue" | "concentrationPctL90d" | "lastOrderDate" | "daysSinceLastOrder" | "personalCadenceDays" | "lapseRatio" | "healthScore";
@@ -138,7 +139,11 @@ export default function WhalesPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {attention.map((c) => (
-              <div key={c.id} className="rounded-md border p-3">
+              <Link
+                key={c.id}
+                href={`/account/${c.id}`}
+                className="gtse-tile block rounded-sm border p-3"
+              >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-medium">{c.name}</span>
                   <HealthBadge band={c.healthBand} score={c.healthScore} />
@@ -156,16 +161,23 @@ export default function WhalesPage() {
                         : `Quarterly review on schedule.`}
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
           </CardContent>
         </Card>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Top 50 {region} whales</CardTitle>
-          <CardDescription>Sortable. {top50.length} accounts representing {formatCurrency(sumLtm(top50), region)} LTM revenue.</CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle>Top 50 {region} whales</CardTitle>
+            <CardDescription>Sortable. {top50.length} accounts representing {formatCurrency(sumLtm(top50), region)} LTM revenue.</CardDescription>
+          </div>
+          <Button asChild size="sm" className="bg-gtse-orange hover:bg-gtse-orange-dark">
+            <Link href={targetsUrl({ region, whaleFlag: true })}>
+              <Download className="h-3.5 w-3.5" /> Open as list / export
+            </Link>
+          </Button>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -181,15 +193,17 @@ export default function WhalesPage() {
                     {sortKey === h.key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
                   </TableHead>
                 ))}
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="text-right">Open</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sorted.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-muted-foreground">{c.industry} · {c.region_subdiv}</div>
+                    <Link href={`/account/${c.id}`} className="block hover:text-gtse-orange">
+                      <div className="font-medium">{c.name}</div>
+                      <div className="text-xs text-muted-foreground">{c.industry} · {c.region_subdiv}</div>
+                    </Link>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{c.ownerName}</TableCell>
                   <TableCell className="text-right font-medium">{formatCurrency(c.ltmRevenue, region)}</TableCell>
@@ -200,11 +214,8 @@ export default function WhalesPage() {
                   <TableCell><LapseBadge ratio={c.lapseRatio} /></TableCell>
                   <TableCell><HealthBadge band={c.healthBand} score={c.healthScore} /></TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" className="h-8 px-2" asChild>
-                      <a href="#" onClick={(e) => e.preventDefault()} title="Mock-up only">
-                        <span className="text-xs">HubSpot</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                    <Button asChild variant="link" size="sm" className="h-auto px-0 text-xs text-gtse-orange">
+                      <Link href={`/account/${c.id}`}>Open →</Link>
                     </Button>
                   </TableCell>
                 </TableRow>

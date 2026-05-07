@@ -1,13 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useRegion } from "@/components/region-context";
 import { PageShell } from "@/components/page-shell";
 import { InsightBanner } from "@/components/insight-banner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { BarSeriesChart } from "@/components/charts/bar-chart";
 import { COMPANIES_UK, COMPANIES_US, insightOf, type RfmSegment } from "@/lib/mock-data";
+import { targetsUrl } from "@/lib/criteria-url";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
 const SEGMENTS: { key: RfmSegment; label: string; description: string; color: string }[] = [
@@ -94,7 +97,7 @@ export default function RfmPage() {
           <CardTitle>Recency × Frequency heatmap</CardTitle>
           <CardDescription>
             Y axis: Recency (5 = most recent). X axis: Frequency (5 = most frequent).
-            Cell shading reflects customer count; hover for details.
+            <span className="font-medium text-foreground"> Click any cell to open that bucket as a target list.</span>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -112,24 +115,38 @@ export default function RfmPage() {
                     <div className="flex w-12 items-center text-xs text-muted-foreground">R = {r}</div>
                     <div className="grid flex-1 grid-cols-5 gap-1">
                       {row.map((cell, f) => {
+                        const fScore = (f + 1) as 1 | 2 | 3 | 4 | 5;
+                        const rScore = r as 1 | 2 | 3 | 4 | 5;
                         const intensity = cell.count / maxCount;
                         const bgAlpha = 0.08 + intensity * 0.85;
                         const dom = dominantSegment(cell);
-                        return (
+                        const href = targetsUrl({ region, rfmScoreR: rScore, rfmScoreF: fScore });
+                        const empty = cell.count === 0;
+                        return empty ? (
                           <div
                             key={f}
-                            className="group relative rounded-md border p-2 text-center transition-colors"
+                            className="rounded-sm border p-2 text-center"
                             style={{ backgroundColor: `rgba(14, 165, 183, ${bgAlpha})` }}
-                            title={`R=${r}, F=${f + 1} · ${cell.count} accounts · ${formatCurrency(cell.revenue, region)} LTM${dom ? ` · top segment: ${dom.name}` : ""}`}
+                          >
+                            <div className="text-base font-semibold text-muted-foreground">0</div>
+                            <div className="text-[10px] text-muted-foreground">—</div>
+                          </div>
+                        ) : (
+                          <Link
+                            key={f}
+                            href={href}
+                            className="group relative rounded-sm border p-2 text-center transition-all hover:border-gtse-orange hover:shadow-md"
+                            style={{ backgroundColor: `rgba(14, 165, 183, ${bgAlpha})` }}
+                            title={`R=${r}, F=${fScore} · ${cell.count} accounts · ${formatCurrency(cell.revenue, region)} LTM${dom ? ` · top segment: ${dom.name}` : ""} — click to open list`}
                           >
                             <div className="text-base font-semibold">{cell.count}</div>
                             <div className="text-[10px] text-muted-foreground">
-                              {cell.count > 0 ? formatCurrency(cell.revenue, region) : "—"}
+                              {formatCurrency(cell.revenue, region)}
                             </div>
-                            {dom && cell.count > 0 ? (
+                            {dom ? (
                               <div className="mt-0.5 text-[10px] font-medium">{dom.name}</div>
                             ) : null}
-                          </div>
+                          </Link>
                         );
                       })}
                     </div>
@@ -195,6 +212,7 @@ export default function RfmPage() {
                 <TableHead className="text-right">Avg LTM</TableHead>
                 <TableHead>Recommended action</TableHead>
                 <TableHead>Owner</TableHead>
+                <TableHead className="text-right">List</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -212,6 +230,13 @@ export default function RfmPage() {
                   <TableCell className="text-right">{formatCurrency(s.aov, region)}</TableCell>
                   <TableCell className="text-sm">{SEGMENT_ACTIONS[s.key].action}</TableCell>
                   <TableCell><Badge variant="secondary">{SEGMENT_ACTIONS[s.key].owner}</Badge></TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild variant="link" className="h-auto px-0 text-xs text-gtse-orange">
+                      <Link href={targetsUrl({ region, rfmSegments: [s.key] })}>
+                        View {s.count} →
+                      </Link>
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Download, RotateCcw, Sparkles, Target as TargetIcon, Send } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Download, RotateCcw, Sparkles, Target as TargetIcon, Send, Search, X } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,11 +18,12 @@ import { useRegion } from "@/components/region-context";
 import {
   EMPTY_CRITERIA, TEMPLATES, type TargetCriteria, type Range,
 } from "@/lib/criteria-types";
+import { paramsToCriteria, mergeCriteria } from "@/lib/criteria-url";
 import { filterCompanies, fieldRanges, distinctOwners } from "@/lib/queries";
 import { companiesToCsv, downloadCsv } from "@/lib/csv";
 import { INDUSTRIES, type Industry } from "@/lib/mock-data/name-banks";
 import type { Company, HealthBand, RfmSegment, SizeBand } from "@/lib/mock-data/companies";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 
 const SIZE_BANDS: SizeBand[] = ["large", "mid", "small", "micro"];
 const RFM_SEGMENTS: RfmSegment[] = ["Champion", "Loyal", "Promising", "AtRisk", "CannotLose", "Hibernating", "New"];
@@ -33,17 +36,32 @@ type SortKey =
   | "daysSinceLastOrder" | "lapseRatio" | "healthScore";
 
 export default function TargetsPage() {
+  return (
+    <React.Suspense fallback={null}>
+      <TargetsView />
+    </React.Suspense>
+  );
+}
+
+function TargetsView() {
   const { region } = useRegion();
-  const currencyRegion = region; // Use the active region's currency for display
+  const currencyRegion = region;
+  const searchParams = useSearchParams();
 
-  // Initialise criteria from active region
-  const [criteria, setCriteria] = React.useState<TargetCriteria>(() => ({
-    ...EMPTY_CRITERIA,
-    region,
-  }));
+  // URL params seed initial criteria. Region toggle then takes over post-mount.
+  const [criteria, setCriteria] = React.useState<TargetCriteria>(() => {
+    const patch = paramsToCriteria(new URLSearchParams(searchParams.toString()));
+    return mergeCriteria({ ...patch, region: patch.region ?? region });
+  });
 
-  // When region toggle changes, re-scope the criteria region.
+  // Track whether we've completed first hydration so the region toggle can
+  // override URL params after that.
+  const initialised = React.useRef(false);
   React.useEffect(() => {
+    if (!initialised.current) {
+      initialised.current = true;
+      return;
+    }
     setCriteria((c) => ({ ...c, region }));
     setSelected(new Set());
   }, [region]);
@@ -114,6 +132,18 @@ export default function TargetsPage() {
     setSelected(new Set());
   }
 
+  function clearCriterion(key: keyof TargetCriteria) {
+    setCriteria((c) => {
+      const next: TargetCriteria = { ...c };
+      const empty = EMPTY_CRITERIA as Record<string, unknown>;
+      const reset = empty[key as string];
+      // If the empty default exists for this key, restore it; otherwise unset
+      if (reset !== undefined) (next as Record<string, unknown>)[key as string] = reset;
+      else delete (next as Record<string, unknown>)[key as string];
+      return next;
+    });
+  }
+
   function onSort(k: SortKey) {
     if (k === sortKey) setSortDir(sortDir === "asc" ? "desc" : "asc");
     else { setSortKey(k); setSortDir(k === "name" || k === "ownerName" || k === "industry" ? "asc" : "desc"); }
@@ -177,7 +207,7 @@ export default function TargetsPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Region scope</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <Select
                 value={criteria.region}
                 onValueChange={(v) => setCriteria((c) => ({ ...c, region: v as TargetCriteria["region"] }))}
@@ -189,6 +219,19 @@ export default function TargetsPage() {
                   <SelectItem value="All">Both regions</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="space-y-1">
+                <div className="text-xs font-medium text-foreground/80">Search company name</div>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="search"
+                    value={criteria.nameContains ?? ""}
+                    onChange={(e) => setCriteria((c) => ({ ...c, nameContains: e.target.value || undefined }))}
+                    placeholder="e.g. Sheffield, Manchester"
+                    className="h-9 w-full rounded-sm border border-input bg-background pl-8 pr-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -331,6 +374,9 @@ export default function TargetsPage() {
 
         {/* Right: results */}
         <div className="space-y-4">
+          {/* Active filters pill row */}
+          <ActiveFiltersBar criteria={criteria} onClear={(k) => clearCriterion(k)} />
+
           {/* Stats bar */}
           <div className="flex flex-wrap items-end justify-between gap-3 rounded-sm border bg-card p-4">
             <div className="flex flex-wrap items-end gap-6">
@@ -431,11 +477,16 @@ export default function TargetsPage() {
                           <Checkbox checked={isSelected} onCheckedChange={() => toggleRow(c.id)} />
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{c.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {c.region} · {c.region_subdiv} · {c.sizeBand}
-                            {c.whaleFlag ? <span className="ml-1 text-gtse-orange font-semibold">· whale</span> : null}
-                          </div>
+                          <Link
+                            href={`/account/${c.id}`}
+                            className="block hover:text-gtse-orange"
+                          >
+                            <div className="font-medium">{c.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {c.region} · {c.region_subdiv} · {c.sizeBand}
+                              {c.whaleFlag ? <span className="ml-1 text-gtse-orange font-semibold">· whale</span> : null}
+                            </div>
+                          </Link>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{c.industry}</TableCell>
                         <TableCell className="text-sm text-muted-foreground">{c.ownerName}</TableCell>
@@ -454,6 +505,66 @@ export default function TargetsPage() {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+type FilterPill = { key: keyof TargetCriteria; label: string };
+
+function ActiveFiltersBar({
+  criteria, onClear,
+}: { criteria: TargetCriteria; onClear: (k: keyof TargetCriteria) => void }) {
+  const pills: FilterPill[] = [];
+
+  if (criteria.industries.length) pills.push({ key: "industries", label: `Industry: ${criteria.industries.join(", ")}` });
+  if (criteria.sizeBands.length) pills.push({ key: "sizeBands", label: `Size: ${criteria.sizeBands.join(", ")}` });
+  if (criteria.rfmSegments.length) pills.push({ key: "rfmSegments", label: `RFM: ${criteria.rfmSegments.join(", ")}` });
+  if (criteria.healthBands.length) pills.push({ key: "healthBands", label: `Health: ${criteria.healthBands.join(", ")}` });
+  if (criteria.owners.length) pills.push({ key: "owners", label: `Owner: ${criteria.owners.join(", ")}` });
+  if (criteria.whaleFlag !== undefined) pills.push({ key: "whaleFlag", label: `Whale: ${criteria.whaleFlag ? "yes" : "no"}` });
+  if (criteria.buyerIntentActive !== undefined) pills.push({ key: "buyerIntentActive", label: `Buyer intent: ${criteria.buyerIntentActive ? "yes" : "no"}` });
+  if (criteria.nameContains) pills.push({ key: "nameContains", label: `Name: "${criteria.nameContains}"` });
+  if (criteria.rfmScoreR !== undefined) pills.push({ key: "rfmScoreR", label: `R = ${criteria.rfmScoreR}` });
+  if (criteria.rfmScoreF !== undefined) pills.push({ key: "rfmScoreF", label: `F = ${criteria.rfmScoreF}` });
+
+  const fmt = (n: number) =>
+    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` :
+    n >= 1000 ? `${(n / 1000).toFixed(0)}k` : String(n);
+
+  const ranges: { key: keyof TargetCriteria; label: string }[] = [
+    { key: "lifetimeRevenue", label: "Lifetime" },
+    { key: "ltmRevenue", label: "LTM" },
+    { key: "l90dRevenue", label: "L90d" },
+    { key: "prior90dRevenue", label: "Prior90d" },
+    { key: "daysSinceLastOrder", label: "Days since" },
+    { key: "lapseRatio", label: "Lapse" },
+    { key: "healthScore", label: "Health" },
+    { key: "lifetimeOrders", label: "Lifetime orders" },
+    { key: "personalCadenceDays", label: "Cadence" },
+    { key: "emailOpensL60d", label: "Opens" },
+  ];
+  for (const r of ranges) {
+    const v = criteria[r.key] as Range | undefined;
+    if (!v) continue;
+    pills.push({ key: r.key, label: `${r.label}: ${fmt(v.min)}–${fmt(v.max)}` });
+  }
+
+  if (pills.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-sm border border-gtse-orange/30 bg-gtse-orange/5 px-3 py-2">
+      <span className="gtse-eyebrow text-gtse-orange">Active filters</span>
+      {pills.map((p) => (
+        <button
+          key={String(p.key) + p.label}
+          onClick={() => onClear(p.key)}
+          className="inline-flex items-center gap-1 rounded-sm border bg-background px-2 py-0.5 text-xs hover:bg-accent"
+          title="Click to clear"
+        >
+          {p.label}
+          <X className="h-3 w-3 text-muted-foreground" />
+        </button>
+      ))}
+    </div>
   );
 }
 
