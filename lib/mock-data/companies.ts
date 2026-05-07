@@ -115,39 +115,52 @@ function pickIndustry(rng: Rng): Industry {
   return pick(rng, INDUSTRIES);
 }
 
-function chooseTop3Reorder(rng: Rng, industry: Industry): string[] {
-  // Bias SKUs by industry — quick mapping
-  const safetyHeavy = ["Construction", "Highway Maintenance", "Manufacturing", "Engineering Services", "Aerospace", "Oil & Gas", "Marine", "Mining"];
-  const ppeHeavy = ["Construction", "Manufacturing", "Pharmaceutical Manufacturing", "Food Processing", "Healthcare Estates"];
+function chooseTop3Reorder(rng: Rng, industry: Industry, sizeBand: SizeBand): string[] {
+  // Bias SKUs by industry — pull from real GTSE catalogue.
+  const byCategory = (cats: string[]) => SKUS.filter((s) => cats.includes(s.category)).map((s) => s.code);
+
   const candidates: string[] = [];
 
-  if (safetyHeavy.includes(industry)) {
-    candidates.push("SS-A4-DANG-001", "SS-A4-CAUT-002", "SIGN-EXIT-LED-200", "TAPE-BARR-RED-500", "RT-IND-MARK-RED-50M");
-  }
-  if (ppeHeavy.includes(industry)) {
-    candidates.push("PPE-HV-VEST-XL", "PPE-GLOVE-NIT-100", "PPE-HARDHAT-WHT", "PPE-GOGGLE-SAFE", "PPE-DUST-MASK-50");
-  }
-  if (industry === "Highway Maintenance" || industry === "Construction") {
-    candidates.push("ROAD-CONE-750-50", "ROAD-CONE-450-50", "TAPE-BARR-YEL-500");
-  }
-  if (industry === "Logistics & Warehousing") {
-    candidates.push("PPE-HV-VEST-XL", "RT-IND-MARK-YEL-50M", "MAT-ANTIFAT-9X6", "TROLLEY-PLAT-500KG");
-  }
-  if (industry === "Oil & Gas" || industry === "Pharmaceutical Manufacturing") {
-    candidates.push("SPILL-KIT-OIL-240", "SPILL-KIT-CHEM-120", "LOTO-PADLOCK-RED-6");
-  }
-  if (industry === "Healthcare Estates") {
-    candidates.push("FA-KIT-50P-BSI", "FA-EYE-WASH-500", "CLEAN-DISI-5L");
-  }
-  // Fallback
-  while (candidates.length < 3) candidates.push(pick(rng, SKUS).code);
+  // Industry → which sign categories they buy most
+  const map: Record<string, string[]> = {
+    "Construction": ["Construction Signs", "Warning Signs", "Multi-Message Signs", "Mandatory Signs"],
+    "Highway Maintenance": ["Road Signs", "Construction Signs", "Floor Graphics"],
+    "Manufacturing": ["Mandatory Signs", "Warning Signs", "5S/6S", "Warehouse Labelling and Marking"],
+    "Engineering Services": ["Mandatory Signs", "Warning Signs", "Hazard Signs"],
+    "Logistics & Warehousing": ["Warehouse Labelling and Marking", "Floor Graphics", "Mandatory Signs", "Vehicle Marking Signs"],
+    "Facilities Management": ["Janitorial & Environmental", "Information Signs", "Mandatory Signs"],
+    "Rail": ["Construction Signs", "Hazard Signs", "Warning Signs"],
+    "Utilities": ["Hazard Signs", "Warning Signs", "Photoluminescent"],
+    "Oil & Gas": ["Hazard Signs", "Photoluminescent", "Fire Signs"],
+    "Mining": ["Hazard Signs", "Warning Signs", "Mandatory Signs"],
+    "Food Processing": ["Janitorial & Environmental", "Mandatory Signs", "First Aid & Safe Condition Signs"],
+    "Pharmaceutical Manufacturing": ["Mandatory Signs", "Hazard Signs", "First Aid & Safe Condition Signs"],
+    "Automotive": ["5S/6S", "Floor Graphics", "Mandatory Signs"],
+    "Aerospace": ["5S/6S", "Mandatory Signs", "Hazard Signs"],
+    "Marine": ["Mandatory Signs", "Photoluminescent", "Warning Signs"],
+    "Public Sector / Local Authority": ["Information Signs", "Prohibition Signs", "First Aid & Safe Condition Signs"],
+    "Education (FE/HE)": ["Information Signs", "Prohibition Signs", "Photoluminescent"],
+    "Healthcare Estates": ["First Aid & Safe Condition Signs", "Mandatory Signs", "Photoluminescent"],
+  };
+  const cats = map[industry] ?? ["Warning Signs", "Mandatory Signs", "Information Signs"];
+  candidates.push(...byCategory(cats));
 
-  // Dedup and take 3
+  // Large accounts also reorder bulk packs
+  if (sizeBand === "large" || sizeBand === "mid") {
+    candidates.push(...byCategory(["Bulk Packs"]));
+  }
+
+  // Fallback
+  while (candidates.length < 6) candidates.push(pick(rng, SKUS).code);
+
+  // Pick 3 distinct, weighted to first half (most-relevant)
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const c of candidates) {
-    if (!seen.has(c)) { seen.add(c); out.push(c); }
-    if (out.length === 3) break;
+  while (out.length < 3 && candidates.length > 0) {
+    const idx = Math.floor(rng() * candidates.length * 0.7); // bias to top
+    const code = candidates[idx];
+    candidates.splice(idx, 1);
+    if (!seen.has(code)) { seen.add(code); out.push(code); }
   }
   return out;
 }
@@ -243,20 +256,21 @@ function generateCompanies(region: "UK" | "US", count: number, seed: number): Co
 
     // Size band correlated with rank
     let sizeBand: SizeBand;
-    if (rank < 30) sizeBand = "large";
-    else if (rank < 100) sizeBand = "mid";
-    else if (rank < 280) sizeBand = "small";
+    if (rank < 50) sizeBand = "large";
+    else if (rank < 250) sizeBand = "mid";
+    else if (rank < 1500) sizeBand = "small";
     else sizeBand = "micro";
 
     // LTM revenue from a Pareto-shaped distribution.
-    // Top accounts: £80k-£250k. Mid: £8k-£40k. Small: £1.5k-£8k. Micro: £200-£1500.
+    // Banding (rank-based) tuned for ~5,000 UK / 3,000 US accounts.
     let ltmBase: number;
     if (rank < 5) ltmBase = paretoRevenue(rng, 90000, 240000, 1.4);
     else if (rank < 20) ltmBase = paretoRevenue(rng, 35000, 90000, 1.6);
     else if (rank < 50) ltmBase = paretoRevenue(rng, 12000, 38000, 1.8);
-    else if (rank < 120) ltmBase = paretoRevenue(rng, 4000, 14000, 2.0);
-    else if (rank < 280) ltmBase = paretoRevenue(rng, 1200, 4500, 2.2);
-    else ltmBase = paretoRevenue(rng, 150, 1300, 2.4);
+    else if (rank < 200) ltmBase = paretoRevenue(rng, 4000, 14000, 2.0);
+    else if (rank < 800) ltmBase = paretoRevenue(rng, 1200, 4500, 2.2);
+    else if (rank < 2500) ltmBase = paretoRevenue(rng, 250, 1500, 2.4);
+    else ltmBase = paretoRevenue(rng, 60, 350, 2.6);
 
     let ltmRevenue = ltmBase;
 
@@ -397,7 +411,7 @@ function generateCompanies(region: "UK" | "US", count: number, seed: number): Co
       buyerIntentActive = rng() < 0.07;
     }
 
-    const top3ReorderSkus = chooseTop3Reorder(rng, industry);
+    const top3ReorderSkus = chooseTop3Reorder(rng, industry, sizeBand);
     const top3CrossSellSkus = chooseCrossSell(rng, top3ReorderSkus);
 
     const activeContacts = (() => {
@@ -435,8 +449,8 @@ function generateCompanies(region: "UK" | "US", count: number, seed: number): Co
   return companies;
 }
 
-export const COMPANIES_UK: Company[] = generateCompanies("UK", 500, 13371);
-export const COMPANIES_US: Company[] = generateCompanies("US", 300, 28009);
+export const COMPANIES_UK: Company[] = generateCompanies("UK", 5000, 13371);
+export const COMPANIES_US: Company[] = generateCompanies("US", 3000, 28009);
 export const ALL_COMPANIES: Company[] = [...COMPANIES_UK, ...COMPANIES_US];
 
 export function companiesByRegion(region: "UK" | "US"): Company[] {

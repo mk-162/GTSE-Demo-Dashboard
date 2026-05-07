@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Home, BarChart3, Crown, AlertTriangle, RefreshCw, Layers,
-  HeartPulse, Network, Boxes, Sparkles,
+  HeartPulse, Network, Boxes, Sparkles, Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "Overview", icon: Home },
+  { href: "/targets", label: "Target builder", icon: Target },
   { href: "/kpis", label: "KPIs", icon: BarChart3 },
   { href: "/whales", label: "Whales", icon: Crown },
   { href: "/lapsed", label: "Lapsed", icon: AlertTriangle },

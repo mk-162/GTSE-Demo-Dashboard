@@ -92,9 +92,8 @@ function buildSegmentsForRegion(region: "UK" | "US"): SegmentMembership[] {
     for (const seg of classifyCompany(c)) buckets[seg].push(c);
   }
 
-  // Prospects synthesised — small fixed count of "MQL" ghost accounts.
-  // We'll fake their count and revenue but not full company records.
-  const prospectCount = region === "UK" ? 84 : 41;
+  // Prospects synthesised — MQL ghost accounts not yet in the order book.
+  const prospectCount = region === "UK" ? 412 : 184;
 
   const result: SegmentMembership[] = (Object.keys(buckets) as Segment[]).map((segment) => {
     if (segment === "Prospects") {

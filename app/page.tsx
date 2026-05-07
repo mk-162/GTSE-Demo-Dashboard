@@ -3,7 +3,7 @@
 import Link from "next/link";
 import {
   ArrowRight, BarChart3, Crown, AlertTriangle, RefreshCw, Layers,
-  HeartPulse, Network, Boxes, Sparkles,
+  HeartPulse, Network, Boxes, Sparkles, Target,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { formatCurrency, formatNumber } from "@/lib/utils";
 import { useRegion } from "@/components/region-context";
 
 const TILES = [
+  { href: "/targets", title: "Target builder", desc: "Slice the customer base, export to CSV", icon: Target, featured: true },
   { href: "/kpis", title: "KPIs", desc: "LTV, AOV, churn, concentration", icon: BarChart3 },
   { href: "/whales", title: "Whales", desc: "Top 50 — protect the revenue", icon: Crown },
   { href: "/lapsed", title: "Lapsed", desc: "Reactivation priorities", icon: AlertTriangle },
