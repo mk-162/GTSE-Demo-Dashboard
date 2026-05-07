@@ -75,7 +75,6 @@ function LoginForm() {
               unoptimized
               className="h-10 w-auto"
             />
-            <div className="gtse-eyebrow text-gtse-orange">Project Whale</div>
             <h1 className="text-2xl font-semibold tracking-tight">Customer intelligence</h1>
             <p className="text-sm text-muted-foreground">
               Internal demo dashboard. Enter the access password to continue.
