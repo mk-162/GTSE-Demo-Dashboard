@@ -1,0 +1,157 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   GTSE brand tokens — Project Whale dashboard
+   Primary: dark teal #455053
+   Accent:  orange   #F7941D
+   ============================================ */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 200 7% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 200 7% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 200 7% 18%;
+
+    /* Primary = GTSE teal #455053 */
+    --primary: 197 9% 30%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 200 14% 96%;
+    --secondary-foreground: 200 7% 18%;
+    --muted: 200 14% 96%;
+    --muted-foreground: 200 4% 42%;
+
+    /* Accent = GTSE orange #F7941D */
+    --accent: 31 93% 54%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 47%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 200 12% 88%;
+    --input: 200 12% 88%;
+    --ring: 31 93% 54%;
+    --radius: 0.125rem;
+
+    /* Raw GTSE brand variables — for components that want exact values */
+    --gtse-teal:        #455053;
+    --gtse-teal-dark:   #343d3f;
+    --gtse-teal-darker: #2a3133;
+    --gtse-teal-light:  #5a686b;
+    --gtse-orange:      #F7941D;
+    --gtse-orange-dark: #d97d0a;
+    --gtse-orange-tint: #fef3e2;
+  }
+
+  .dark {
+    --background: 200 12% 9%;
+    --foreground: 200 14% 96%;
+    --card: 200 10% 12%;
+    --card-foreground: 200 14% 96%;
+    --popover: 200 10% 12%;
+    --popover-foreground: 200 14% 96%;
+
+    /* In dark mode, primary becomes the lighter teal so it's readable */
+    --primary: 197 9% 42%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 200 8% 17%;
+    --secondary-foreground: 200 14% 96%;
+    --muted: 200 8% 17%;
+    --muted-foreground: 200 6% 65%;
+
+    --accent: 31 93% 54%;
+    --accent-foreground: 200 12% 9%;
+
+    --destructive: 0 63% 41%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 200 8% 22%;
+    --input: 200 8% 22%;
+    --ring: 31 93% 54%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* GTSE-flavoured component styles */
+@layer components {
+  /* Pill/uppercase labels used throughout */
+  .gtse-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    font-size: 0.7rem;
+  }
+
+  /* Sidebar brand block — the teal app rail */
+  .gtse-rail {
+    background: linear-gradient(180deg, var(--gtse-teal) 0%, var(--gtse-teal-dark) 100%);
+    color: #fff;
+  }
+
+  /* Hover lift for tile cards */
+  .gtse-tile {
+    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .gtse-tile:hover {
+    border-color: var(--gtse-orange);
+    box-shadow: 0 6px 18px rgba(247, 148, 29, 0.18);
+    transform: translateY(-2px);
+  }
+
+  /* Insight banner accent (orange, GTSE-style) */
+  .gtse-insight {
+    border-left: 4px solid var(--gtse-orange);
+    background: rgba(247, 148, 29, 0.06);
+  }
+  .dark .gtse-insight {
+    background: rgba(247, 148, 29, 0.10);
+  }
+
+  /* Section heading underline */
+  .gtse-h2-underline {
+    border-bottom: 2px solid var(--gtse-orange);
+    padding-bottom: 0.35rem;
+    display: inline-block;
+  }
+
+  /* Table header — teal block, white uppercase */
+  .gtse-table thead tr {
+    background: var(--gtse-teal);
+  }
+  .gtse-table thead th {
+    color: #fff !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.7rem !important;
+    font-weight: 600;
+  }
+  .gtse-table tbody tr:hover td {
+    background-color: rgba(247, 148, 29, 0.06);
+  }
+}
+
+.recharts-tooltip-wrapper {
+  outline: none !important;
+}
+
+.recharts-default-tooltip {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  font-size: 12px !important;
+  padding: 8px 12px !important;
+}
