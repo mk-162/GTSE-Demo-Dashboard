@@ -1,8 +1,8 @@
 # Project Whale — Build state
 
-**As of 2026-05-08 evening.** This doc tracks where the build is, what's dormant, and what tomorrow's first action is. Pair with [`runbook.md`](./runbook.md) (operational procedures) and the master plan (`C:\AI_Project\GTSE\project-whale-master-plan.md`, the technical contract).
+**As of 2026-05-08 evening.** This doc tracks where the build is, what's dormant, and what tomorrow's first action is.
 
-When you (or a fresh agent) resume work, read this first to orient — then `git log --oneline -5` to confirm the commits below are still on `main`.
+**Read order on resume:** this doc → [`session-2026-05-08.md`](./session-2026-05-08.md) (long-form decisions log) → [`runbook.md`](./runbook.md) (operational procedures) → master plan (`C:\AI_Project\GTSE\project-whale-master-plan.md`, the technical contract). Then `git log --oneline -5` to confirm the commits below are still on `main`.
 
 ---
 
@@ -105,11 +105,11 @@ CP-2 = raw HubSpot data flowing in `raw_hubspot.*`. Total ~30 minutes from a cle
 
 ```
 $ git log --oneline -5 main
+433d79b M5 postgres facade impls (dormant): full DataLayer for both runtimes
+9fb7bee Add docs/build-state.md — milestone snapshot for resume
 0b01550 M4 SQL + transform cron + runbook + db:migrate CLI (all dormant)
 6b712ec M2 infra (dormant): Postgres clients, schema migrations, HubSpot ingestion
 f1ffc96 Milestone 1: server data facade with mock implementation
-055f6f2 Rename 'Ask Whale' to 'gBot' in chat button + panel header
-95df26a Add Settings page + public REST API (/api/v1/*) for AI integrations
 ```
 
 **`main` deploys to <https://gtse-demo-dashboard.vercel.app>** automatically. The only user-visible change since the start of 2026-05-08 is the Settings page "Direct database access" tab now mentions HubSpot+NetSuite via Vercel Cron instead of Airbyte+BigCommerce. Everything else is dormant infrastructure that hasn't activated.
