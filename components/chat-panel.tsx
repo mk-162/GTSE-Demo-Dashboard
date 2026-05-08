@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import useSWR from "swr";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import {
@@ -11,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { useRegion } from "@/components/region-context";
 import { MessageMarkdown } from "@/components/message-markdown";
 import { cn } from "@/lib/utils";
+
+const nameIndexFetcher = async (url: string): Promise<Record<string, string>> => {
+  const res = await fetch(url);
+  if (!res.ok) return {};
+  const data = (await res.json()) as { companies?: Record<string, string> };
+  return data.companies ?? {};
+};
 
 const SUGGESTIONS: { icon: typeof Phone; text: string; category: string }[] = [
   { icon: Phone, category: "Call list", text: "Give me 5 high-value lapsed accounts to call this week." },
@@ -61,6 +69,14 @@ export function ChatPanel({ open, onClose }: Props) {
     transport,
     messages: initialMessages,
   });
+
+  // Fetch name → id map for auto-linkifying **bold** company names. We fetch
+  // both regions because the chat may reference accounts from either book.
+  const { data: nameToIdMap } = useSWR(
+    "/api/internal/companies/name-index",
+    nameIndexFetcher,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
 
   // Persist messages whenever they change.
   React.useEffect(() => {
@@ -203,6 +219,7 @@ export function ChatPanel({ open, onClose }: Props) {
                   key={m.id}
                   message={m}
                   isStreaming={status === "streaming" && i === messages.length - 1 && m.role === "assistant"}
+                  nameToIdMap={nameToIdMap}
                   onRegenerate={
                     m.role === "assistant" && i === messages.length - 1 && status !== "streaming"
                       ? () => regenerate()
@@ -324,11 +341,12 @@ function Empty({ wide, onPick }: { wide: boolean; onPick: (t: string) => void })
 }
 
 function Message({
-  message, isStreaming, onRegenerate,
+  message, isStreaming, onRegenerate, nameToIdMap,
 }: {
   message: UIMessage;
   isStreaming: boolean;
   onRegenerate?: () => void;
+  nameToIdMap?: Record<string, string>;
 }) {
   const isUser = message.role === "user";
   const text = message.parts
@@ -353,7 +371,7 @@ function Message({
       </span>
       <div className="flex-1 min-w-0">
         <div className="rounded-sm border bg-card px-4 py-3">
-          <MessageMarkdown text={text} />
+          <MessageMarkdown text={text} nameToIdMap={nameToIdMap} />
           {isStreaming ? (
             <span className="ml-1 inline-block h-3 w-1.5 animate-pulse bg-gtse-orange align-baseline" aria-hidden />
           ) : null}

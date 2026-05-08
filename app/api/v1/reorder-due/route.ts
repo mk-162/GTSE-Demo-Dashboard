@@ -1,4 +1,5 @@
-import { COMPANIES_UK, COMPANIES_US, type Company } from "@/lib/mock-data/companies";
+import { getData } from "@/lib/data";
+import type { Company } from "@/lib/data/contracts";
 import { requireApiToken, jsonResponse, corsPreflight } from "@/lib/v1-auth";
 import { serialiseCompany } from "@/lib/v1-serialise";
 
@@ -26,7 +27,8 @@ export async function GET(req: Request) {
   const withinDays = Math.max(1, Math.min(120, Number(url.searchParams.get("within_days") ?? 14)));
   const includeOverdue = url.searchParams.get("overdue") !== "false";
 
-  const all = region === "UK" ? COMPANIES_UK : COMPANIES_US;
+  const data = await getData();
+  const all = await data.companiesByRegion(region);
   const rows = all
     .filter((c) => c.lifetimeOrders >= 3)
     .filter((c) => {

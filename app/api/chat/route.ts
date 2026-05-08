@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const region = body.region === "US" ? "US" : "UK";
   const messages = body.messages ?? [];
 
-  const dataContext = buildDataContext(region);
+  const dataContext = await buildDataContext(region);
 
   const result = streamText({
     model: anthropic("claude-sonnet-4-6"),

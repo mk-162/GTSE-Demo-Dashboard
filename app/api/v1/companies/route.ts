@@ -1,5 +1,4 @@
-import { COMPANIES_UK, COMPANIES_US } from "@/lib/mock-data/companies";
-import { filterCompanies } from "@/lib/queries";
+import { getData } from "@/lib/data";
 import { paramsToCriteria } from "@/lib/criteria-url";
 import { EMPTY_CRITERIA } from "@/lib/criteria-types";
 import { requireApiToken, jsonResponse, corsPreflight } from "@/lib/v1-auth";
@@ -36,7 +35,8 @@ export async function GET(req: Request) {
   const limit = clamp(Number(url.searchParams.get("limit") ?? 100), 1, 1000);
   const offset = Math.max(0, Number(url.searchParams.get("offset") ?? 0));
 
-  const all = filterCompanies(criteria);
+  const data = await getData();
+  const all = await data.filterCompanies(criteria);
   const slice = all.slice(offset, offset + limit);
 
   return jsonResponse({
@@ -46,11 +46,6 @@ export async function GET(req: Request) {
     region: criteria.region,
     companies: slice.map(serialiseCompany),
     meta: {
-      filtered_from: criteria.region === "All"
-        ? COMPANIES_UK.length + COMPANIES_US.length
-        : criteria.region === "UK"
-          ? COMPANIES_UK.length
-          : COMPANIES_US.length,
       generated_at: new Date().toISOString(),
     },
   });
@@ -60,4 +55,3 @@ function clamp(n: number, lo: number, hi: number): number {
   if (Number.isNaN(n)) return lo;
   return Math.max(lo, Math.min(hi, n));
 }
-

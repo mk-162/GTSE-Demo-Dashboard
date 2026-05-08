@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   }
 
   const region = body.region === "US" ? "US" : "UK";
-  const prompts = buildInsightPrompt(body.insightType, region);
+  const prompts = await buildInsightPrompt(body.insightType, region);
   if (!prompts) {
     return new Response(
       JSON.stringify({ error: "unknown insightType", insightType: body.insightType }),
@@ -46,6 +46,5 @@ export async function POST(req: Request) {
     temperature: 0.5,
   });
 
-  // Plain text stream (not UI-message stream) — the client just appends chunks.
   return result.toTextStreamResponse();
 }

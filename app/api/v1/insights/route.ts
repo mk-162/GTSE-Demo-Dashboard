@@ -1,4 +1,4 @@
-import { insightsByRegion, INSIGHTS } from "@/lib/mock-data/insights";
+import { getData } from "@/lib/data";
 import { requireApiToken, jsonResponse, corsPreflight } from "@/lib/v1-auth";
 
 export const runtime = "edge";
@@ -25,7 +25,11 @@ export async function GET(req: Request) {
   const type = url.searchParams.get("type") || undefined;
 
   const region = regionParam === "US" ? "US" : regionParam === "All" ? "All" : "UK";
-  const list = region === "All" ? INSIGHTS : insightsByRegion(region);
+  const data = await getData();
+
+  const list = region === "All"
+    ? [...(await data.insightsByRegion("UK")), ...(await data.insightsByRegion("US"))]
+    : await data.insightsByRegion(region);
 
   const filtered = type ? list.filter((i) => i.insightType === type) : list;
 

@@ -1,5 +1,5 @@
-import { companyById } from "@/lib/mock-data";
-import { generateOrdersFor, ordersByMonth, topSkus } from "@/lib/mock-data/orders";
+import { getData } from "@/lib/data";
+import { ordersByMonth, topSkus } from "@/lib/order-helpers";
 import { requireApiToken, jsonResponse, corsPreflight } from "@/lib/v1-auth";
 import { serialiseCompany } from "@/lib/v1-serialise";
 
@@ -24,7 +24,8 @@ export async function GET(
   if (unauth) return unauth;
 
   const { id } = await ctx.params;
-  const company = companyById(decodeURIComponent(id));
+  const data = await getData();
+  const company = await data.companyById(decodeURIComponent(id));
   if (!company) {
     return jsonResponse({ error: "not_found", id }, { status: 404 });
   }
@@ -32,7 +33,7 @@ export async function GET(
   const url = new URL(req.url);
   const includeOrders = url.searchParams.get("include_orders") !== "false";
 
-  const orders = includeOrders ? generateOrdersFor(company) : [];
+  const orders = includeOrders ? await data.ordersForCompany(company.id) : [];
 
   return jsonResponse({
     company: serialiseCompany(company),

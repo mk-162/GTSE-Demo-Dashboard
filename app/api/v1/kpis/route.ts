@@ -1,4 +1,4 @@
-import { kpisByRegion } from "@/lib/mock-data/kpis";
+import { getData } from "@/lib/data";
 import { requireApiToken, jsonResponse, corsPreflight } from "@/lib/v1-auth";
 
 export const runtime = "edge";
@@ -18,7 +18,8 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const region = url.searchParams.get("region") === "US" ? "US" : "UK";
-  const k = kpisByRegion(region);
+  const data = await getData();
+  const k = await data.kpisByRegion(region);
 
   return jsonResponse({
     region: k.region,

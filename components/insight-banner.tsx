@@ -4,7 +4,7 @@ import * as React from "react";
 import { Sparkles, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MessageMarkdown } from "@/components/message-markdown";
-import type { InsightType } from "@/lib/mock-data/insights";
+import type { InsightType } from "@/lib/data/contracts";
 
 type Props = {
   bodyMarkdown: string;
@@ -14,6 +14,8 @@ type Props = {
   // If both insightType + region are provided, the "Regenerate" button is shown.
   insightType?: InsightType;
   region?: "UK" | "US";
+  // Optional name → id map for auto-linkifying **bold** company names.
+  nameToIdMap?: Record<string, string>;
 };
 
 function fmtTime(iso: string): string {
@@ -32,7 +34,7 @@ function fmtTime(iso: string): string {
 
 
 export function InsightBanner({
-  bodyMarkdown, generatedAt, dataSnapshotSummary, className, insightType, region,
+  bodyMarkdown, generatedAt, dataSnapshotSummary, className, insightType, region, nameToIdMap,
 }: Props) {
   const [overrideBody, setOverrideBody] = React.useState<string | null>(null);
   const [overrideAt, setOverrideAt] = React.useState<string | null>(null);
@@ -138,7 +140,7 @@ export function InsightBanner({
             ) : null
           ) : (
             <div className="relative">
-              <MessageMarkdown text={displayBody} />
+              <MessageMarkdown text={displayBody} nameToIdMap={nameToIdMap} />
               {status === "streaming" ? (
                 <span className="ml-1 inline-block h-3 w-1.5 animate-pulse bg-gtse-orange align-baseline" aria-hidden />
               ) : null}

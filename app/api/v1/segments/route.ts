@@ -1,4 +1,4 @@
-import { segmentsByRegion } from "@/lib/mock-data/segments";
+import { getData } from "@/lib/data";
 import { requireApiToken, jsonResponse, corsPreflight } from "@/lib/v1-auth";
 
 export const runtime = "edge";
@@ -22,7 +22,8 @@ export async function GET(req: Request) {
   const region = url.searchParams.get("region") === "US" ? "US" : "UK";
   const includeIds = url.searchParams.get("include_ids") !== "false";
 
-  const segments = segmentsByRegion(region);
+  const data = await getData();
+  const segments = await data.segmentsByRegion(region);
 
   return jsonResponse({
     region,

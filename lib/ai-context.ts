@@ -3,9 +3,8 @@
 // shoving raw HubSpot records into Claude's context, we send a tiny pre-aggregated
 // summary that's enough for it to reason about the customer base.
 
-import { COMPANIES_UK, COMPANIES_US, type Company } from "./mock-data/companies";
-import { kpisByRegion } from "./mock-data/kpis";
-import { segmentsByRegion } from "./mock-data/segments";
+import { getData } from "@/lib/data";
+import type { Company, Region } from "@/lib/data/contracts";
 
 const TODAY = new Date("2026-05-08");
 
@@ -24,11 +23,15 @@ function summariseCompany(c: Company, currency: "£" | "$"): string {
   return `- [id=${c.id}] ${c.name} (${c.industry}, ${c.region_subdiv}) | LTM ${fmt(c.ltmRevenue, currency)} | lifetime ${fmt(c.lifetimeRevenue, currency)} | last order ${last}d ago | cadence ${c.personalCadenceDays ?? "?"}d | lapse ${c.lapseRatio.toFixed(2)}× | health ${c.healthBand} (${c.healthScore}) | RFM ${c.rfmSegment} | owner ${c.ownerName}${c.buyerIntentActive ? " | BUYER INTENT ACTIVE" : ""}${c.whaleFlag ? " | whale" : ""}`;
 }
 
-export function buildDataContext(region: "UK" | "US"): string {
-  const all = region === "UK" ? COMPANIES_UK : COMPANIES_US;
+export async function buildDataContext(region: Region): Promise<string> {
+  const data = await getData();
+  const [all, otherRegion, k, segs] = await Promise.all([
+    data.companiesByRegion(region),
+    data.companiesByRegion(region === "UK" ? "US" : "UK"),
+    data.kpisByRegion(region),
+    data.segmentsByRegion(region),
+  ]);
   const currency: "£" | "$" = region === "UK" ? "£" : "$";
-  const k = kpisByRegion(region);
-  const segs = segmentsByRegion(region);
 
   // Today's queues
   const overdueReorders = all.filter((c) => {
@@ -40,18 +43,15 @@ export function buildDataContext(region: "UK" | "US"): string {
   const turnedRed = all.filter((c) => c.healthBand === "red").length;
   const lapsedHighValue = all.filter((c) => c.lapseRatio >= 1.5 && c.lapseRatio < 4 && c.lifetimeRevenue >= 8000).length;
 
-  // Top 15 whales (by LTM revenue) with signals
   const top15Whales = [...all]
     .sort((a, b) => b.ltmRevenue - a.ltmRevenue)
     .slice(0, 15);
 
-  // Top 10 lapsed by historical value (currently silent)
   const top10Lapsed = [...all]
     .filter((c) => c.lapseRatio >= 1.5)
     .sort((a, b) => b.lifetimeRevenue - a.lifetimeRevenue)
     .slice(0, 10);
 
-  // Active intent + lapsed (call list)
   const callList = [...all]
     .filter((c) => c.buyerIntentActive && c.lapseRatio >= 1.2)
     .sort((a, b) => b.lifetimeRevenue - a.lifetimeRevenue)
@@ -60,6 +60,8 @@ export function buildDataContext(region: "UK" | "US"): string {
   const segLines = segs.map((s) =>
     `- ${s.segment}: ${s.count} accounts, ${fmt(s.totalRevenueLtm, currency)} LTM`,
   );
+
+  const otherRegionLabel = region === "UK" ? "US" : "UK";
 
   return `# Project Whale data context — ${region} customer base
 As of: ${TODAY.toISOString().slice(0, 10)}
@@ -93,7 +95,7 @@ ${top10Lapsed.map((c) => summariseCompany(c, currency)).join("\n")}
 ${callList.length > 0 ? callList.map((c) => summariseCompany(c, currency)).join("\n") : "(none today)"}
 
 ## Data shape notes
-- Customer database: ${all.length.toLocaleString()} ${region} accounts plus ${region === "UK" ? COMPANIES_US.length.toLocaleString() + " US" : COMPANIES_UK.length.toLocaleString() + " UK"} accounts available.
+- Customer database: ${all.length.toLocaleString()} ${region} accounts plus ${otherRegion.length.toLocaleString()} ${otherRegionLabel} accounts available.
 - 12-month monthly revenue trend (most recent month last): ${k.monthlyTrend.slice(-6).map((m) => `${m.month}: ${fmt(m.revenue, currency)}`).join("; ")}
 - Health bands: ≥70 green, 40–69 amber, <40 red
 - Lapse ratio: days since last order ÷ personal reorder cadence. >1.5 = lapsing, >2.0 = lapsed.
@@ -110,11 +112,11 @@ ${callList.length > 0 ? callList.map((c) => summariseCompany(c, currency)).join(
 `;
 }
 
-export function buildInsightPrompt(
+export async function buildInsightPrompt(
   insightType: string,
-  region: "UK" | "US",
-): { system: string; user: string } | null {
-  const ctx = buildDataContext(region);
+  region: Region,
+): Promise<{ system: string; user: string } | null> {
+  const ctx = await buildDataContext(region);
   const currency = region === "UK" ? "pounds" : "dollars";
 
   const promptByType: Record<string, { task: string; tone: string }> = {

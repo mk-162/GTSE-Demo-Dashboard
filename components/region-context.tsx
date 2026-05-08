@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 
 export type Region = "UK" | "US";
 
@@ -11,41 +12,61 @@ type RegionContextValue = {
 
 const RegionContext = React.createContext<RegionContextValue | undefined>(undefined);
 
-const STORAGE_KEY = "whale.region";
+const COOKIE_NAME = "whale_region";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
+const LEGACY_LOCALSTORAGE_KEY = "whale.region";
 
-export function RegionProvider({ children }: { children: React.ReactNode }) {
-  const [region, setRegionState] = React.useState<Region>("UK");
-  const [hydrated, setHydrated] = React.useState(false);
+function writeRegionCookie(r: Region) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${COOKIE_NAME}=${r}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+}
 
+function hasRegionCookie(): boolean {
+  if (typeof document === "undefined") return false;
+  return document.cookie
+    .split(";")
+    .some((c) => c.trim().startsWith(`${COOKIE_NAME}=`));
+}
+
+export function RegionProvider({
+  initialRegion,
+  children,
+}: {
+  initialRegion: Region;
+  children: React.ReactNode;
+}) {
+  const [region, setRegionState] = React.useState<Region>(initialRegion);
+  const router = useRouter();
+
+  // One-time migration for users who selected a region before the cookie
+  // migration: lift their localStorage choice into the cookie + refresh so
+  // server components pick it up.
   React.useEffect(() => {
+    if (hasRegionCookie()) return;
     try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved === "UK" || saved === "US") setRegionState(saved);
+      const legacy = window.localStorage.getItem(LEGACY_LOCALSTORAGE_KEY);
+      if (legacy === "UK" || legacy === "US") {
+        writeRegionCookie(legacy);
+        if (legacy !== initialRegion) {
+          setRegionState(legacy);
+          router.refresh();
+        }
+      }
     } catch {
       // ignore
     }
-    setHydrated(true);
-  }, []);
+  }, [initialRegion, router]);
 
-  const setRegion = React.useCallback((r: Region) => {
-    setRegionState(r);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, r);
-    } catch {
-      // ignore
-    }
-  }, []);
+  const setRegion = React.useCallback(
+    (r: Region) => {
+      setRegionState(r);
+      writeRegionCookie(r);
+      router.refresh();
+    },
+    [router],
+  );
 
   const value = React.useMemo(() => ({ region, setRegion }), [region, setRegion]);
-
-  // Avoid hydration mismatch — render children only once we've read localStorage.
-  if (!hydrated) {
-    return (
-      <RegionContext.Provider value={value}>
-        <div suppressHydrationWarning>{children}</div>
-      </RegionContext.Provider>
-    );
-  }
 
   return <RegionContext.Provider value={value}>{children}</RegionContext.Provider>;
 }

@@ -1,5 +1,5 @@
 import { Badge } from "./ui/badge";
-import type { HealthBand } from "@/lib/mock-data/companies";
+import type { HealthBand } from "@/lib/data/contracts";
 
 export function HealthBadge({ band, score }: { band: HealthBand; score?: number }) {
   const variant = band === "green" ? "green" : band === "amber" ? "amber" : "red";

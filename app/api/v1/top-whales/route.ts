@@ -1,4 +1,4 @@
-import { topNByLtmRevenue } from "@/lib/mock-data";
+import { getData } from "@/lib/data";
 import { requireApiToken, jsonResponse, corsPreflight } from "@/lib/v1-auth";
 import { serialiseCompany } from "@/lib/v1-serialise";
 
@@ -21,7 +21,8 @@ export async function GET(req: Request) {
   const region = url.searchParams.get("region") === "US" ? "US" : "UK";
   const n = Math.max(1, Math.min(200, Number(url.searchParams.get("n") ?? 50)));
 
-  const top = topNByLtmRevenue(region, n);
+  const data = await getData();
+  const top = await data.topNByLtmRevenue(region, n);
 
   return jsonResponse({
     region,

@@ -1,4 +1,4 @@
-import { lapsedByRegion, slippingByRegion } from "@/lib/mock-data";
+import { getData } from "@/lib/data";
 import { requireApiToken, jsonResponse, corsPreflight } from "@/lib/v1-auth";
 import { serialiseCompany } from "@/lib/v1-serialise";
 
@@ -22,12 +22,16 @@ export async function GET(req: Request) {
   const region = url.searchParams.get("region") === "US" ? "US" : "UK";
   const include = (url.searchParams.get("include") ?? "lapsed").split(",").map((s) => s.trim());
 
+  const data = await getData();
+  const all = await data.companiesByRegion(region);
+  const lapsed = all.filter((c) => c.lapseRatio >= 2.0);
+  const slipping = all.filter((c) => c.lapseRatio >= 1.0 && c.lapseRatio < 2.0);
+
   const buckets: Record<string, number> = {};
-  let rows = include.includes("lapsed") ? lapsedByRegion(region) : [];
-  buckets.lapsed = rows.length;
+  let rows = include.includes("lapsed") ? [...lapsed] : [];
+  buckets.lapsed = include.includes("lapsed") ? lapsed.length : 0;
 
   if (include.includes("slipping")) {
-    const slipping = slippingByRegion(region);
     rows = [...rows, ...slipping];
     buckets.slipping = slipping.length;
   }

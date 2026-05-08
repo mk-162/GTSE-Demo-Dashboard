@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Slider } from "@/components/ui/slider";
 import type { Range } from "@/lib/criteria-types";
-import type { FieldRange } from "@/lib/queries";
+import type { FieldRange } from "@/lib/data/contracts";
 
 type Props = {
   label: string;
