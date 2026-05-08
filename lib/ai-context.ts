@@ -21,7 +21,7 @@ function daysBetweenIso(a: string, b: Date): number {
 
 function summariseCompany(c: Company, currency: "£" | "$"): string {
   const last = daysBetweenIso(c.lastOrderDate, TODAY);
-  return `- ${c.name} (${c.industry}, ${c.region_subdiv}) | LTM ${fmt(c.ltmRevenue, currency)} | lifetime ${fmt(c.lifetimeRevenue, currency)} | last order ${last}d ago | cadence ${c.personalCadenceDays ?? "?"}d | lapse ${c.lapseRatio.toFixed(2)}× | health ${c.healthBand} (${c.healthScore}) | RFM ${c.rfmSegment} | owner ${c.ownerName}${c.buyerIntentActive ? " | BUYER INTENT ACTIVE" : ""}${c.whaleFlag ? " | whale" : ""}`;
+  return `- [id=${c.id}] ${c.name} (${c.industry}, ${c.region_subdiv}) | LTM ${fmt(c.ltmRevenue, currency)} | lifetime ${fmt(c.lifetimeRevenue, currency)} | last order ${last}d ago | cadence ${c.personalCadenceDays ?? "?"}d | lapse ${c.lapseRatio.toFixed(2)}× | health ${c.healthBand} (${c.healthScore}) | RFM ${c.rfmSegment} | owner ${c.ownerName}${c.buyerIntentActive ? " | BUYER INTENT ACTIVE" : ""}${c.whaleFlag ? " | whale" : ""}`;
 }
 
 export function buildDataContext(region: "UK" | "US"): string {
@@ -181,13 +181,15 @@ You have access to a pre-aggregated data context for the user's currently select
 When the user asks for a list of accounts that match some criteria, suggest opening the Target builder with appropriate filters and provide the URL. URL format examples:
 - /targets?template=former-whales
 - /targets?template=intent-back
-- /targets?healthBands=red — accounts in red health
-- /targets?whaleFlag=true&healthBands=amber,red — whales at risk
-- /targets?lapseRatio_min=1.5&lapseRatio_max=10 — lapsed accounts
-- /targets?industry=Manufacturing,Construction&lapseRatio_min=1.5&lapseRatio_max=10
-- /account/<id> — drill into a specific account
+- /targets?health=red — accounts in red health
+- /targets?whale=true&health=amber,red — whales at risk
+- /targets?lapseRatioMin=1.5&lapseRatioMax=10 — lapsed accounts
+- /targets?industry=Manufacturing,Construction&lapseRatioMin=1.5&lapseRatioMax=10
 
-When the user asks about a specific company by name, link to its /account page.
+For specific account links, use the ID from the data context: /account/{id}
+The IDs look like co_uk_0042 or co_us_0007 — they are listed in the data context as [id=co_xx_NNNN].
+NEVER fabricate an account ID or guess a URL slug from a company name.
+If a user asks about a company NOT in the listed data, say you don't have that account in the current snapshot rather than inventing a URL.
 
 Style:
 - Write like a sharp analyst in a chat with a sales manager. No fluff. No "I'd be happy to help."
