@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Sun, BarChart3, Crown, AlertTriangle, RefreshCw, Layers,
-  HeartPulse, Network, Boxes, Sparkles, Target,
+  HeartPulse, Network, Boxes, Sparkles, Target, Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +36,12 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/insights", label: "Insights hub", icon: Sparkles },
       { href: "/rfm", label: "RFM", icon: Layers },
       { href: "/kpis", label: "KPIs", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Setup",
+    items: [
+      { href: "/settings", label: "AI integrations", icon: Plug },
     ],
   },
 ];

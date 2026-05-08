@@ -20,8 +20,13 @@ async function expectedToken(): Promise<string> {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Always allow the login page and the auth API to render without a cookie.
-  if (pathname === "/login" || pathname.startsWith("/api/auth")) {
+  // Always allow the login page, the auth API, and the public v1 API
+  // (which has its own Bearer-token auth at endpoint level).
+  if (
+    pathname === "/login" ||
+    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/v1")
+  ) {
     return NextResponse.next();
   }
 
