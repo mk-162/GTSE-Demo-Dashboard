@@ -20,12 +20,17 @@ async function expectedToken(): Promise<string> {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Always allow the login page, the auth API, and the public v1 API
-  // (which has its own Bearer-token auth at endpoint level).
+  // Always allow the login page, the auth API, the public v1 API (which
+  // has its own Bearer-token auth at endpoint level), and the cron API
+  // (which validates Authorization: Bearer $CRON_SECRET inside each
+  // route — without this exemption Vercel's cron invocations hit a 302
+  // to /login and silently succeed-from-Vercel's-view while doing
+  // nothing).
   if (
     pathname === "/login" ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/api/v1")
+    pathname.startsWith("/api/v1") ||
+    pathname.startsWith("/api/cron")
   ) {
     return NextResponse.next();
   }
