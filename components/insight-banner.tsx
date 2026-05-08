@@ -1,10 +1,9 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { Sparkles, RefreshCw, Loader2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { companyByName } from "@/lib/mock-data";
+import { MessageMarkdown } from "@/components/message-markdown";
 import type { InsightType } from "@/lib/mock-data/insights";
 
 type Props = {
@@ -31,47 +30,6 @@ function fmtTime(iso: string): string {
   return `${time} on ${date}`;
 }
 
-// Tiny inline markdown — supports **bold** and *italic*. Bold spans that match
-// a known company name become clickable links to the account-detail page.
-function renderInline(text: string): React.ReactNode[] {
-  const out: React.ReactNode[] = [];
-  let i = 0;
-  let key = 0;
-  while (i < text.length) {
-    if (text.startsWith("**", i)) {
-      const end = text.indexOf("**", i + 2);
-      if (end === -1) { out.push(text.slice(i)); break; }
-      const inner = text.slice(i + 2, end);
-      const company = companyByName(inner);
-      if (company) {
-        out.push(
-          <Link
-            key={key++}
-            href={`/account/${company.id}`}
-            className="font-semibold text-foreground underline decoration-gtse-orange/40 decoration-2 underline-offset-2 hover:decoration-gtse-orange"
-          >
-            {inner}
-          </Link>,
-        );
-      } else {
-        out.push(<strong key={key++} className="font-semibold text-foreground">{inner}</strong>);
-      }
-      i = end + 2;
-    } else if (text[i] === "*") {
-      const end = text.indexOf("*", i + 1);
-      if (end === -1) { out.push(text.slice(i)); break; }
-      out.push(<em key={key++}>{text.slice(i + 1, end)}</em>);
-      i = end + 1;
-    } else {
-      const next = text.indexOf("**", i);
-      const nextItalic = text.indexOf("*", i);
-      const stop = [next, nextItalic].filter((x) => x >= 0).sort((a, b) => a - b)[0] ?? text.length;
-      out.push(text.slice(i, stop));
-      i = stop;
-    }
-  }
-  return out;
-}
 
 export function InsightBanner({
   bodyMarkdown, generatedAt, dataSnapshotSummary, className, insightType, region,
@@ -84,7 +42,6 @@ export function InsightBanner({
   const canRegenerate = Boolean(insightType && region);
   const displayBody = overrideBody ?? bodyMarkdown;
   const displayAt = overrideAt ?? generatedAt;
-  const paragraphs = displayBody.split(/\n\n+/);
 
   async function regenerate() {
     if (!canRegenerate || status === "streaming") return;
@@ -175,17 +132,18 @@ export function InsightBanner({
               <span>{errorMsg}</span>
             </div>
           ) : null}
-          <div className="space-y-2 text-[15px] leading-relaxed text-foreground/90">
-            {paragraphs.length === 0 || (paragraphs.length === 1 && paragraphs[0] === "") ? (
-              status === "streaming" ? (
-                <p className="text-muted-foreground">Generating…</p>
-              ) : null
-            ) : (
-              paragraphs.map((p, idx) => (
-                <p key={idx}>{renderInline(p)}</p>
-              ))
-            )}
-          </div>
+          {displayBody.trim().length === 0 ? (
+            status === "streaming" ? (
+              <p className="text-muted-foreground">Generating…</p>
+            ) : null
+          ) : (
+            <div className="relative">
+              <MessageMarkdown text={displayBody} />
+              {status === "streaming" ? (
+                <span className="ml-1 inline-block h-3 w-1.5 animate-pulse bg-gtse-orange align-baseline" aria-hidden />
+              ) : null}
+            </div>
+          )}
           <p className="mt-3 text-xs italic text-muted-foreground">{dataSnapshotSummary}</p>
         </div>
       </div>
