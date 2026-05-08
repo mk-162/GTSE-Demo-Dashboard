@@ -1,11 +1,28 @@
 import { describe, it, expect } from "vitest";
 import memoryImpl from "./impl/memory";
+import postgresNodeImpl from "./impl/postgres-node";
+import postgresEdgeImpl from "./impl/postgres-edge";
 import type { DataLayer, InsightType } from "./contracts";
 
+// memoryImpl always runs. The postgres impls are added when
+// TEST_DATABASE_URL is set — point it at a Neon dev branch with a
+// populated marts schema to validate the postgres impls against the
+// same contract that memoryImpl already passes.
+//
+// The postgres impls are imported unconditionally (so the bundle stays
+// stable) but only exercised when TEST_DATABASE_URL is present.
+// Without the env var, postgres-pool / neon-http would throw on first
+// query; importing them is safe because both clients lazy-init.
 const impls: { name: string; impl: DataLayer }[] = [
   { name: "memory", impl: memoryImpl },
-  // M5 will add: postgres-edge, postgres-node
 ];
+
+if (process.env.TEST_DATABASE_URL) {
+  process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
+  process.env.DATABASE_URL_UNPOOLED = process.env.TEST_DATABASE_URL_UNPOOLED ?? process.env.TEST_DATABASE_URL;
+  impls.push({ name: "postgres-node", impl: postgresNodeImpl });
+  impls.push({ name: "postgres-edge", impl: postgresEdgeImpl });
+}
 
 const INSIGHT_TYPES: InsightType[] = [
   "kpi_summary",

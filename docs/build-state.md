@@ -14,7 +14,7 @@ When you (or a fresh agent) resume work, read this first to orient — then `git
 | **M2 — Neon + HubSpot ingestion** | 🟡 Dormant — code committed, not running | `lib/db/{neon-http,postgres-pool,migrate}.ts`. Migrations 001-004 (schemas, raw_hubspot, app, raw_netsuite). `lib/ingest/*` HubSpot pulls + associations. `/api/cron/ingest-hubspot` route. Cron not scheduled in `vercel.json`; auth-gated so dormant. |
 | **M3 — NetSuite ingestion** | ❌ Not started | Auth path is a Phase 0 §B1 decision. Writing OAuth 2.0 vs TBA on a guess wastes effort. |
 | **M4 — Marts + transform** | 🟡 Dormant — code committed, not running | Migrations 005-008 (staging views, SQL functions, 8 marts, retention cleanup). `/api/cron/transform` route. Same dormant-by-default treatment as M2. |
-| **M5 — Postgres facade impls + security + cutover** | ❌ Not started | Postgres impls would mechanically port from `memoryImpl` but can't be validated without populated marts. Security pass (8 items §10.3) gates production cutover. |
+| **M5 — Postgres facade impls + security + cutover** | 🟡 Postgres impls dormant; security + cutover not started | `lib/data/impl/postgres-{node,edge}.ts` written — full DataLayer impl against `marts.*` for both Node (porsager/postgres) and Edge (Neon HTTP) runtimes. Contract tests gated on `TEST_DATABASE_URL` so they skip cleanly without DB. Security pass (8 items §10.3) and cutover gated on populated marts. |
 | **M6 — Insights cron** | ❌ Not started (one polish item shipped) | Settings page copy fix (Airbyte/BigCommerce → HubSpot/NetSuite via Vercel Cron) merged in `0b01550`. Insights cron itself defers until M5 cutover so the dashboard reads from `app.dashboard_insights`. |
 
 **Dormant ≠ untested.** Every dormant commit passes `pnpm typecheck`, `pnpm test` (18/18), and `pnpm build`. The cron routes return 401 if `CRON_SECRET` is unset (they will be, in production until set), so accidental invocation is harmless.
@@ -60,7 +60,6 @@ These are areas where I made a defensible-but-reviewable decision in the M4 SQL.
 | **HubSpot token + CRON_SECRET** | Matt generates and sets on Vercel. |
 | **`vercel.json` cron entries** | Adding the schedule activates the cron. Without env vars set, scheduled cron would 500 noisily at 02:00 UTC. Activate when Neon + tokens land. |
 | **NetSuite (M3)** | Auth path is Phase 0 §B1 decision. |
-| **Postgres facade impls (M5 §10.1)** | Mechanical port from `memoryImpl` (~150 lines) but can't be validated without populated marts — bugs would lurk until cutover. |
 | **M5 security partial** | `WHALE_API_TOKEN` fail-closed and CORS allow-list deploy-break the existing demo if env vars aren't set first. Wire up alongside M5 cutover. |
 | **Insights cron (M6 §11.1)** | Writes to `app.dashboard_insights`; nothing reads from there until M5 cutover. Premature. |
 
@@ -98,6 +97,7 @@ CP-2 = raw HubSpot data flowing in `raw_hubspot.*`. Total ~30 minutes from a cle
 - **NetSuite (M3)** — once Phase 0 §B1 selects an auth path, ~3-4 hours to write the client + 6 pull modules + cron.
 - **Activate transform cron** — add `vercel.json` entry, manually trigger to populate marts. ~5 min.
 - **CP-3** spot-check 3 accounts in `marts.dim_customer` vs HubSpot UI per master plan §9.5.
+- **CP-4 contract tests** — set `TEST_DATABASE_URL` to a Neon dev branch with populated marts, run `pnpm test`. Validates `postgresNodeImpl` and `postgresEdgeImpl` produce the same shape as `memoryImpl`. ~5 min if marts are clean.
 
 ---
 
