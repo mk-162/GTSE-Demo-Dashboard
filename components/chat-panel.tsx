@@ -146,7 +146,7 @@ export function ChatPanel({ open, onClose }: Props) {
               <Sparkles className="h-4 w-4" />
             </span>
             <div>
-              <div className="text-sm font-semibold leading-tight">Ask Whale</div>
+              <div className="text-sm font-semibold leading-tight">gBot</div>
               <div className="text-[11px] text-muted-foreground">
                 {region} customer base · Claude Sonnet 4.6
               </div>

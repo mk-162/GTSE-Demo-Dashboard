@@ -83,10 +83,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 size="sm"
                 onClick={() => setChatOpen(true)}
                 className="gap-1.5 border-gtse-orange/30 bg-gtse-orange/5 text-foreground hover:bg-gtse-orange/10"
-                title="Ask Whale anything"
+                title="Ask gBot anything"
               >
                 <Sparkles className="h-3.5 w-3.5 text-gtse-orange" />
-                <span className="hidden text-xs font-semibold uppercase tracking-wider md:inline">Ask Whale</span>
+                <span className="hidden text-xs font-semibold uppercase tracking-wider md:inline">gBot</span>
               </Button>
               <ThemeToggle />
               <Button
