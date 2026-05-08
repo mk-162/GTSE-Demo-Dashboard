@@ -61,6 +61,8 @@ export default function KpisPage() {
         bodyMarkdown={insight.bodyMarkdown}
         generatedAt={insight.generatedAt}
         dataSnapshotSummary={insight.dataSnapshotSummary}
+        insightType={insight.insightType}
+        region={insight.region}
       />
 
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">

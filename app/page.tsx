@@ -76,6 +76,8 @@ export default function HomePage() {
         bodyMarkdown={monthly.bodyMarkdown}
         generatedAt={monthly.generatedAt}
         dataSnapshotSummary={monthly.dataSnapshotSummary}
+        insightType={monthly.insightType}
+        region={monthly.region}
       />
 
       {/* Top 4 quick stats */}

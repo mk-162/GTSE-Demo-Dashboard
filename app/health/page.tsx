@@ -77,6 +77,8 @@ export default function HealthPage() {
         bodyMarkdown={insight.bodyMarkdown}
         generatedAt={insight.generatedAt}
         dataSnapshotSummary={insight.dataSnapshotSummary}
+        insightType={insight.insightType}
+        region={insight.region}
       />
 
       <div className="grid gap-4 lg:grid-cols-3">

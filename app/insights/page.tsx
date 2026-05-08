@@ -110,6 +110,8 @@ export default function InsightsPage() {
             bodyMarkdown={featured.bodyMarkdown}
             generatedAt={featured.generatedAt}
             dataSnapshotSummary={featured.dataSnapshotSummary}
+            insightType={featured.insightType}
+            region={featured.region}
           />
         </CardContent>
       </Card>

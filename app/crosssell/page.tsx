@@ -65,6 +65,8 @@ export default function CrossSellPage() {
         bodyMarkdown={insight.bodyMarkdown}
         generatedAt={insight.generatedAt}
         dataSnapshotSummary={insight.dataSnapshotSummary}
+        insightType={insight.insightType}
+        region={insight.region}
       />
 
       <Card>

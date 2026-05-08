@@ -4,10 +4,11 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, Sparkles } from "lucide-react";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { RegionToggle } from "@/components/region-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ChatPanel } from "@/components/chat-panel";
 import { Button } from "@/components/ui/button";
 
 const GTSE_LOGO =
@@ -19,6 +20,8 @@ const BARE_ROUTES = new Set(["/login"]);
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isBare = pathname ? BARE_ROUTES.has(pathname) : false;
+
+  const [chatOpen, setChatOpen] = React.useState(false);
 
   if (isBare) return <>{children}</>;
 
@@ -75,6 +78,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <div className="flex items-center gap-2">
               <RegionToggle />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setChatOpen(true)}
+                className="gap-1.5 border-gtse-orange/30 bg-gtse-orange/5 text-foreground hover:bg-gtse-orange/10"
+                title="Ask Whale anything"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-gtse-orange" />
+                <span className="hidden text-xs font-semibold uppercase tracking-wider md:inline">Ask Whale</span>
+              </Button>
               <ThemeToggle />
               <Button
                 variant="ghost"
@@ -93,6 +106,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mx-auto w-full max-w-[1400px] p-4 md:p-8">{children}</div>
         </main>
       </div>
+      <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }
