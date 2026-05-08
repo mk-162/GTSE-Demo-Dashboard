@@ -332,7 +332,7 @@ function DbPanel() {
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
             <div>
-              <strong>Available once Phase 1 ships.</strong> The current demo data lives in TypeScript modules. When the real warehouse goes live (Vercel Postgres / Neon, populated by Airbyte from HubSpot + NetSuite + BigCommerce), this is the connection string developers will use.
+              <strong>Available once Phase 1 ships.</strong> The current demo data lives in TypeScript modules. When the real warehouse goes live (Vercel Postgres / Neon, populated by nightly Vercel Cron jobs from HubSpot and NetSuite), this is the connection string developers will use.
             </div>
           </div>
         </div>
