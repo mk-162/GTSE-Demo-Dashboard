@@ -2,6 +2,8 @@
 // flagging the ones that represent "closed-won / shipped" via their
 // metadata.probability and metadata.isClosed fields.
 
+export {}; // force module mode so `main` doesn't collide with sibling scripts
+
 type Stage = {
   id: string;
   label: string;

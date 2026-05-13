@@ -4,6 +4,8 @@
 // If 403, scopes are wrong. If 200, the token works and any SDK 401 is a
 // client-config issue.
 
+export {}; // force module mode so `main` doesn't collide with sibling scripts
+
 async function main() {
   const token = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
 
