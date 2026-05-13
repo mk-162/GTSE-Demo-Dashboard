@@ -578,12 +578,14 @@ const impl: DataLayer = {
 
   async distinctOwners(region) {
     const sql = getPool();
+    // Single WHERE clause built conditionally — the previous version
+    // produced two WHERE clauses ("WHERE region = $1 WHERE owner_name
+    // IS NOT NULL") and threw a Postgres syntax error on /targets.
     const where = region === "UK" || region === "US"
-      ? sql`WHERE region = ${region}`
-      : sql``;
+      ? sql`WHERE region = ${region} AND owner_name IS NOT NULL`
+      : sql`WHERE owner_name IS NOT NULL`;
     const rows = await sql<{ owner_name: string }[]>`
       SELECT DISTINCT owner_name FROM marts.dim_customer ${where}
-      WHERE owner_name IS NOT NULL
       ORDER BY owner_name ASC
     `;
     return rows.map((r) => r.owner_name);
