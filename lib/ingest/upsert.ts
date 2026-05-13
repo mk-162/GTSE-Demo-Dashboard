@@ -7,6 +7,7 @@ const HUBSPOT_TABLES = new Set([
   "line_items",
   "contacts",
   "engagements",
+  "orders",
 ]);
 
 type HubSpotRow = {

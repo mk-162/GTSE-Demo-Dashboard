@@ -5,9 +5,11 @@ import { pullHubSpotDeals } from "@/lib/ingest/pull-deals";
 import { pullHubSpotLineItems } from "@/lib/ingest/pull-line-items";
 import { pullHubSpotContacts } from "@/lib/ingest/pull-contacts";
 import { pullHubSpotOwners } from "@/lib/ingest/pull-owners";
+import { pullHubSpotOrders } from "@/lib/ingest/pull-orders";
 // pullHubSpotEngagements is parked for Phase 2 — see comment in GET handler.
 // import { pullHubSpotEngagements } from "@/lib/ingest/pull-engagements";
 import { pullDealAssociations } from "@/lib/ingest/pull-deal-associations";
+import { pullOrderAssociations } from "@/lib/ingest/pull-order-associations";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -46,6 +48,7 @@ export async function GET(req: Request) {
     const line_items = await pullHubSpotLineItems();
     const contacts = await pullHubSpotContacts();
     const owners = await pullHubSpotOwners();
+    const orders = await pullHubSpotOrders();
     // Engagements pull is parked for Phase 2 (2026-05-13). Our Phase 1
     // HubSpot service key has scopes for companies/contacts/deals/
     // line_items/owners — NOT for emails/calls/meetings/notes/tasks (which
@@ -59,6 +62,7 @@ export async function GET(req: Request) {
     // const engagements = await pullHubSpotEngagements();
     const engagements = 0;
     const associations = await pullDealAssociations();
+    const orderAssociations = await pullOrderAssociations();
 
     const counts = {
       companies,
@@ -66,9 +70,11 @@ export async function GET(req: Request) {
       line_items,
       contacts,
       owners,
+      orders,
       engagements,
       assoc_deal_company: associations.companies,
       assoc_deal_line_item: associations.lineItems,
+      assoc_order_company: orderAssociations.companies,
     };
     const total = Object.values(counts).reduce((s, n) => s + n, 0);
 

@@ -11,7 +11,9 @@ import { pullHubSpotDeals } from "../lib/ingest/pull-deals";
 import { pullHubSpotLineItems } from "../lib/ingest/pull-line-items";
 import { pullHubSpotContacts } from "../lib/ingest/pull-contacts";
 import { pullHubSpotOwners } from "../lib/ingest/pull-owners";
+import { pullHubSpotOrders } from "../lib/ingest/pull-orders";
 import { pullDealAssociations } from "../lib/ingest/pull-deal-associations";
+import { pullOrderAssociations } from "../lib/ingest/pull-order-associations";
 
 async function timed<T>(label: string, fn: () => Promise<T>): Promise<T> {
   console.log(`\n→ ${label} starting...`);
@@ -48,10 +50,15 @@ async function main() {
   const owners = await timed("pull-owners", pullHubSpotOwners);
   console.log(`  → ${owners} owner rows upserted`);
 
-  // Associations must run AFTER deals so it can read deal_ids from
-  // raw_hubspot.deals.
+  const orders = await timed("pull-orders", pullHubSpotOrders);
+  console.log(`  → ${orders} new order rows`);
+
+  // Associations must run AFTER their parents.
   const associations = await timed("pull-deal-associations", pullDealAssociations);
   console.log(`  → ${associations.companies} deal→company links, ${associations.lineItems} deal→line_item links`);
+
+  const orderAssocs = await timed("pull-order-associations", pullOrderAssociations);
+  console.log(`  → ${orderAssocs.companies} order→company links`);
 
   console.log("\n=== Done ===");
 }
