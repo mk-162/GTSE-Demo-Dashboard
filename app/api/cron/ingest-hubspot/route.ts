@@ -4,6 +4,7 @@ import { pullHubSpotCompanies } from "@/lib/ingest/pull-companies";
 import { pullHubSpotDeals } from "@/lib/ingest/pull-deals";
 import { pullHubSpotLineItems } from "@/lib/ingest/pull-line-items";
 import { pullHubSpotContacts } from "@/lib/ingest/pull-contacts";
+import { pullHubSpotOwners } from "@/lib/ingest/pull-owners";
 // pullHubSpotEngagements is parked for Phase 2 — see comment in GET handler.
 // import { pullHubSpotEngagements } from "@/lib/ingest/pull-engagements";
 import { pullDealAssociations } from "@/lib/ingest/pull-deal-associations";
@@ -44,6 +45,7 @@ export async function GET(req: Request) {
     const deals = await pullHubSpotDeals();
     const line_items = await pullHubSpotLineItems();
     const contacts = await pullHubSpotContacts();
+    const owners = await pullHubSpotOwners();
     // Engagements pull is parked for Phase 2 (2026-05-13). Our Phase 1
     // HubSpot service key has scopes for companies/contacts/deals/
     // line_items/owners — NOT for emails/calls/meetings/notes/tasks (which
@@ -63,6 +65,7 @@ export async function GET(req: Request) {
       deals,
       line_items,
       contacts,
+      owners,
       engagements,
       assoc_deal_company: associations.companies,
       assoc_deal_line_item: associations.lineItems,

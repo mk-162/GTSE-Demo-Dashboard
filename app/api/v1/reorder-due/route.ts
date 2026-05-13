@@ -5,7 +5,12 @@ import { serialiseCompany } from "@/lib/v1-serialise";
 
 export const runtime = "edge";
 
-const TODAY = new Date("2026-05-08");
+// Compute "today" at request time, not module-load time — Vercel
+// functions can stay warm across days, and a frozen TODAY would slide
+// the reorder window relative to wall-clock time.
+function today(): Date {
+  return new Date();
+}
 
 export async function OPTIONS() {
   return corsPreflight();
@@ -52,7 +57,7 @@ export async function GET(req: Request) {
 
 function daysVsPredicted(c: Company): number {
   return Math.round(
-    (new Date(c.predictedNextOrderDate).getTime() - TODAY.getTime()) / (1000 * 60 * 60 * 24),
+    (new Date(c.predictedNextOrderDate).getTime() - today().getTime()) / (1000 * 60 * 60 * 24),
   );
 }
 

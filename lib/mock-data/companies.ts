@@ -8,7 +8,7 @@ import { SKUS } from "./skus";
 
 export type SizeBand = "micro" | "small" | "mid" | "large";
 export type RfmSegment = "Champion" | "Loyal" | "AtRisk" | "CannotLose" | "Hibernating" | "New" | "Promising";
-export type HealthBand = "green" | "amber" | "red";
+export type HealthBand = "green" | "amber" | "red" | "unknown";
 
 export type Company = {
   id: string;

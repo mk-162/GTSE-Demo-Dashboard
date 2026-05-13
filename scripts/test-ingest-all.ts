@@ -10,6 +10,7 @@ import { pullHubSpotCompanies } from "../lib/ingest/pull-companies";
 import { pullHubSpotDeals } from "../lib/ingest/pull-deals";
 import { pullHubSpotLineItems } from "../lib/ingest/pull-line-items";
 import { pullHubSpotContacts } from "../lib/ingest/pull-contacts";
+import { pullHubSpotOwners } from "../lib/ingest/pull-owners";
 import { pullDealAssociations } from "../lib/ingest/pull-deal-associations";
 
 async function timed<T>(label: string, fn: () => Promise<T>): Promise<T> {
@@ -43,6 +44,9 @@ async function main() {
 
   const contacts = await timed("pull-contacts", pullHubSpotContacts);
   console.log(`  → ${contacts} new contact rows`);
+
+  const owners = await timed("pull-owners", pullHubSpotOwners);
+  console.log(`  → ${owners} owner rows upserted`);
 
   // Associations must run AFTER deals so it can read deal_ids from
   // raw_hubspot.deals.
