@@ -9,10 +9,12 @@
 -- (via the property confirmed in Phase 0 §A6) and the canonical region
 -- derived from billing country.
 --
--- The customer_id is namespaced by region so a US customer's id is
--- 'co_us_000123', not 'co_united_states_000123' — derived from region
--- inside a CTE so the CASE expression stays in sync between the region
--- column and the id.
+-- The customer_id is namespaced by region (e.g. `co_uk_11186316739`)
+-- using the full HubSpot hs_object_id verbatim. Earlier versions used
+-- `lpad(hs_object_id::text, 6, '0')` for a pretty zero-padded look,
+-- but Postgres lpad TRUNCATES strings longer than the length arg, so
+-- real 11-digit HubSpot IDs collapsed to a 6-char prefix and collided.
+-- See migration 012_fix_customer_id_truncation.sql for the fix.
 CREATE OR REPLACE VIEW staging.customer AS
 WITH base AS (
   SELECT
@@ -32,7 +34,7 @@ WITH base AS (
   ) c
 )
 SELECT
-  ('co_' || lower(b.region_code) || '_' || lpad(b.hs_object_id::text, 6, '0')) AS id,
+  ('co_' || lower(b.region_code) || '_' || b.hs_object_id::text) AS id,
   b.hs_object_id                                       AS hs_company_id,
   -- PHASE 0 §A6: confirm property name. Falls through to NULL if unset
   -- on this Company; staging.fact_order_lines + dim_customer drop those

@@ -2,12 +2,18 @@ import "server-only";
 import { runMigrations } from "@/lib/db/migrate";
 import { getPool } from "@/lib/db/postgres-pool";
 
-// Mart refresh order matters: dim_customer must refresh before the
-// derived marts (whales, lapsed, reorder_due, kpi_overview,
-// rfm_segments, company_health) since they SELECT FROM it.
+// Mart refresh order matters:
+//   - fact_order_lines must refresh BEFORE dim_customer because
+//     fn_personal_cadence and fn_lapse_ratio query it (see migration 011
+//     — it's materialised to make those function calls fast).
+//   - dim_customer must refresh before the derived marts (whales,
+//     lapsed, reorder_due, kpi_overview, rfm_segments, company_health)
+//     since they SELECT FROM it.
+//
 // inventory_status was removed when Phase 1 dropped NetSuite (2026-05-13).
 // ► Restoration plan: docs/netsuite-deferred.md
 export const MART_VIEWS = [
+  "marts.fact_order_lines",
   "marts.dim_customer",
   "marts.whales",
   "marts.lapsed",

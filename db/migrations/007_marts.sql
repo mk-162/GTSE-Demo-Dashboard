@@ -174,8 +174,13 @@ WHERE lifetime_orders >= 3
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reorder_due_id ON marts.reorder_due (id);
 
 -- ─── marts.kpi_overview ────────────────────────────────────────────
--- Per-region aggregate KPIs the /kpis page reads. percentile_cont gives
--- LTV distribution; concentration percentages computed inline.
+-- Per-region aggregate KPIs the /kpis page reads. ONE ROW per region
+-- by construction (every CTE GROUPs BY region, and the final SELECT
+-- joins them all on region). Earlier versions did
+-- `JOIN dim_customer ... LIMIT 2` with window functions, which
+-- produced one row per dim_customer record and used LIMIT 2 as a hack;
+-- that broke when LIMIT picked two rows from the same region. See
+-- migration 013_fix_kpi_overview.sql for the history.
 CREATE MATERIALIZED VIEW IF NOT EXISTS marts.kpi_overview AS
 WITH region_totals AS (
   SELECT
@@ -211,49 +216,39 @@ ltv_pct AS (
     avg(lifetime_revenue)                                          AS mean
   FROM marts.dim_customer
   GROUP BY region
+),
+dc_agg AS (
+  SELECT
+    region,
+    count(*) FILTER (WHERE days_since_last_order <= 365)  AS active_customers_ltm,
+    count(*) FILTER (WHERE lapse_ratio >= 2.0)            AS cadence_churn_count,
+    count(*) FILTER (WHERE days_since_last_order > 365)   AS rolling_churn_count,
+    count(*) FILTER (WHERE lifetime_orders >= 2)          AS repeat_count,
+    sum(coalesce(lifetime_orders, 0))                     AS total_lifetime_orders
+  FROM marts.dim_customer
+  GROUP BY region
 )
 SELECT
-  rt.region                                                    AS region,
-  CURRENT_DATE                                                  AS as_of_date,
-  rt.region_count                                              AS total_customers,
-  count(*) FILTER (WHERE dc.days_since_last_order <= 365)
-    OVER (PARTITION BY rt.region)                              AS active_customers_ltm,
-  round(p.p25)::int                                            AS ltv_p25,
-  round(p.p50)::int                                            AS ltv_p50,
-  round(p.p75)::int                                            AS ltv_p75,
-  round(p.p90)::int                                            AS ltv_p90,
-  round(p.mean)::int                                           AS ltv_mean,
-  -- AOV approximated as ltm_revenue total / sum(lifetime_orders) per region.
-  round(
-    rt.region_ltm_total /
-    NULLIF(sum(coalesce(dc.lifetime_orders, 0)) OVER (PARTITION BY rt.region), 0)
-  )::int                                                       AS aov,
-  -- Cadence churn: % of customers with lapse_ratio >= 2.0.
-  round(
-    100.0 * count(*) FILTER (WHERE dc.lapse_ratio >= 2.0)
-    OVER (PARTITION BY rt.region) / NULLIF(rt.region_count, 0),
-    1
-  )                                                            AS churn_rate_cadence,
-  round(
-    100.0 * count(*) FILTER (WHERE dc.days_since_last_order > 365)
-    OVER (PARTITION BY rt.region) / NULLIF(rt.region_count, 0),
-    1
-  )                                                            AS churn_rate_rolling,
-  -- Repeat rate: customers with lifetime_orders >= 2.
-  round(
-    100.0 * count(*) FILTER (WHERE dc.lifetime_orders >= 2)
-    OVER (PARTITION BY rt.region) / NULLIF(rt.region_count, 0),
-    1
-  )                                                            AS repeat_rate,
-  -- Concentration percentages.
+  rt.region                                                              AS region,
+  CURRENT_DATE                                                            AS as_of_date,
+  rt.region_count::int                                                    AS total_customers,
+  da.active_customers_ltm::int                                            AS active_customers_ltm,
+  round(p.p25)::int                                                       AS ltv_p25,
+  round(p.p50)::int                                                       AS ltv_p50,
+  round(p.p75)::int                                                       AS ltv_p75,
+  round(p.p90)::int                                                       AS ltv_p90,
+  round(p.mean)::int                                                      AS ltv_mean,
+  round(rt.region_ltm_total / NULLIF(da.total_lifetime_orders, 0))::int   AS aov,
+  round(100.0 * da.cadence_churn_count / NULLIF(rt.region_count, 0), 1)   AS churn_rate_cadence,
+  round(100.0 * da.rolling_churn_count / NULLIF(rt.region_count, 0), 1)   AS churn_rate_rolling,
+  round(100.0 * da.repeat_count / NULLIF(rt.region_count, 0), 1)          AS repeat_rate,
   round(coalesce(tn.top_10_ltm, 0) / NULLIF(rt.region_ltm_total, 0) * 1000) / 10 AS concentration_top_10,
   round(coalesce(tn.top_20_ltm, 0) / NULLIF(rt.region_ltm_total, 0) * 1000) / 10 AS concentration_top_20,
   round(coalesce(tn.top_50_ltm, 0) / NULLIF(rt.region_ltm_total, 0) * 1000) / 10 AS concentration_top_50
 FROM region_totals rt
-JOIN ltv_pct       p  ON p.region  = rt.region
-LEFT JOIN top_n    tn ON tn.region = rt.region
-JOIN marts.dim_customer dc ON dc.region = rt.region
-LIMIT 2; -- one row per region (UK, US)
+JOIN ltv_pct  p   ON p.region  = rt.region
+LEFT JOIN top_n tn ON tn.region = rt.region
+JOIN dc_agg   da   ON da.region = rt.region;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_kpi_overview_region ON marts.kpi_overview (region);
 
