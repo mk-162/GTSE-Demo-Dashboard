@@ -1,23 +1,13 @@
-// Server-side session storage. Sessions are DB rows in app.sessions;
-// the cookie value is a random 32-byte hex string keyed to that row.
+// Edge-safe portions of session management — types, constants,
+// session-id generation (Web Crypto), and lookup via Neon HTTP.
 //
-// Why DB-backed rather than signed JWT:
-//   - Revocation is a single DELETE — when someone leaves GTSE, IT can
-//     `DELETE FROM app.sessions WHERE hub_user_email = ...` and they're
-//     out immediately, no waiting for token expiry.
-//   - Audit-friendly — last_seen_at, created_at, expires_at, plus the
-//     auth_audit table give a complete picture of dashboard access.
-//   - Simpler — no JWT signing keys, no key rotation, no clock-skew
-//     pitfalls.
-//
-// Trade-off: every middleware request hits Neon. For GTSE's volume this
-// is fine; if it ever becomes a hot path, add a 30-second in-memory
-// cache or move to signed cookies + revocation list.
+// All Node-only operations (create, delete, audit log writes) live in
+// lib/auth/sessions-node.ts. This split lets middleware.ts (Edge
+// runtime) import only this file without dragging the `postgres`
+// library into the Edge bundle.
 
 import "server-only";
-
 import { getHttpSql } from "@/lib/db/neon-http";
-import { getPool } from "@/lib/db/postgres-pool";
 
 export const SESSION_COOKIE = "whale_session";
 export const SESSION_DURATION_DAYS = 30;
@@ -36,7 +26,8 @@ export type SessionRow = {
 
 /**
  * Generate a cryptographically random session id. Uses Web Crypto so it
- * works in both Node (the auth callback route) and Edge (middleware).
+ * works in both Node (the auth callback route) and Edge (anything that
+ * needs to mint a session).
  */
 export function generateSessionId(): string {
   const bytes = new Uint8Array(32);
@@ -44,28 +35,6 @@ export function generateSessionId(): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
-}
-
-/**
- * Create a new session row. Node-only — called from the OAuth callback
- * route after a successful sign-in.
- */
-export async function createSession(params: {
-  id: string;
-  hubUserId: string;
-  hubUserEmail: string;
-  hubUserName: string | null;
-  hubId: number;
-}): Promise<void> {
-  const sql = getPool();
-  const expiresAt = new Date(Date.now() + SESSION_DURATION_SECONDS * 1000);
-  await sql`
-    INSERT INTO app.sessions
-      (id, hub_user_id, hub_user_email, hub_user_name, hub_id, expires_at)
-    VALUES
-      (${params.id}, ${params.hubUserId}, ${params.hubUserEmail},
-       ${params.hubUserName}, ${params.hubId}, ${expiresAt.toISOString()})
-  `;
 }
 
 /**
@@ -95,38 +64,4 @@ export async function lookupSession(sessionId: string): Promise<SessionRow | nul
   void sql`UPDATE app.sessions SET last_seen_at = now() WHERE id = ${sessionId}`;
 
   return rows[0];
-}
-
-/**
- * Delete a session (sign-out). Node-only — called from the
- * DELETE /api/auth/session route.
- */
-export async function deleteSession(sessionId: string): Promise<void> {
-  const sql = getPool();
-  await sql`DELETE FROM app.sessions WHERE id = ${sessionId}`;
-}
-
-/**
- * Record an authentication event for audit purposes. Non-blocking —
- * caller can fire and forget.
- */
-export async function logAuthEvent(params: {
-  event: "sign_in" | "sign_out" | "sign_in_rejected";
-  hubUserId?: string;
-  hubUserEmail?: string;
-  hubId?: number;
-  reason?: string;
-  ip?: string;
-  userAgent?: string;
-}): Promise<void> {
-  const sql = getPool();
-  await sql`
-    INSERT INTO app.auth_audit
-      (event, hub_user_id, hub_user_email, hub_id, reason, ip, user_agent)
-    VALUES
-      (${params.event}, ${params.hubUserId ?? null},
-       ${params.hubUserEmail ?? null}, ${params.hubId ?? null},
-       ${params.reason ?? null}, ${params.ip ?? null}::inet,
-       ${params.userAgent ?? null})
-  `;
 }

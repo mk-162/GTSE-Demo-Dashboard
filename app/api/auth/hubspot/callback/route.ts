@@ -22,10 +22,9 @@ import {
 import {
   SESSION_COOKIE,
   SESSION_DURATION_SECONDS,
-  createSession,
   generateSessionId,
-  logAuthEvent,
 } from "@/lib/auth/sessions";
+import { createSession, logAuthEvent } from "@/lib/auth/sessions-node";
 
 export const runtime = "nodejs";
 

@@ -5,12 +5,8 @@
 //   row and clearing the cookie.
 
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  SESSION_COOKIE,
-  deleteSession,
-  logAuthEvent,
-  lookupSession,
-} from "@/lib/auth/sessions";
+import { SESSION_COOKIE, lookupSession } from "@/lib/auth/sessions";
+import { deleteSession, logAuthEvent } from "@/lib/auth/sessions-node";
 
 export const runtime = "nodejs";
 
