@@ -10,17 +10,26 @@ let _pool: ReturnType<typeof postgres> | null = null;
 
 export function getPool() {
   if (_pool) return _pool;
-  const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+  // Accept both naming conventions:
+  //   - DATABASE_URL / DATABASE_URL_UNPOOLED (older Vercel-Postgres integration,
+  //     master-plan default)
+  //   - POSTGRES_URL / POSTGRES_URL_NON_POOLING (current Vercel-Neon Marketplace
+  //     integration, what `vercel env pull` produces today)
+  // Prefer unpooled when available — this module is Node-only and runs ingest/
+  // transform crons that want larger client-side pools.
+  const unpooled =
+    process.env.DATABASE_URL_UNPOOLED ?? process.env.POSTGRES_URL_NON_POOLING;
+  const pooled = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
+  const url = unpooled ?? pooled;
   if (!url) {
     throw new Error(
-      "DATABASE_URL not set — provision Neon via Vercel Marketplace, then run `vercel env pull .env.local`",
+      "No Postgres connection string found. Expected one of: " +
+        "DATABASE_URL_UNPOOLED, DATABASE_URL, POSTGRES_URL_NON_POOLING, POSTGRES_URL. " +
+        "Provision Neon via Vercel Marketplace, then run `vercel env pull --environment=production .env.local`.",
     );
   }
-  // Neon's pooled URL handles connection pooling on the server side, so we
-  // can use a small client-side pool. For the unpooled URL we let postgres
-  // manage normally (default max 10).
   _pool = postgres(url, {
-    max: process.env.DATABASE_URL_UNPOOLED ? 10 : 1,
+    max: unpooled ? 10 : 1,
     idle_timeout: 20,
     connect_timeout: 10,
   });

@@ -33,14 +33,18 @@ export async function upsertHubSpotObject(
   if (rows.length === 0) return 0;
 
   const sql = getPool();
-  // postgres.js doesn't auto-stringify objects for jsonb columns, so we
-  // serialize the payload explicitly. Tuples are typed as
-  // (string | number)[][] which the postgres.js helper accepts.
-  const tuples: (string | number)[][] = rows.map((r) => [
-    r.hs_object_id,
-    r.hs_lastmodified,
-    JSON.stringify(r.payload),
-  ]);
+  // Three parallel arrays driven through UNNEST + per-row cast. Why this
+  // exact pattern (text[] + cast each element in SELECT, NOT jsonb[] at
+  // the array level): postgres.js encodes string-array parameters for the
+  // wire protocol with extra escaping, and applying `::jsonb[]` at array
+  // level then stores each element as a jsonb STRING value rather than
+  // parsing it as a jsonb OBJECT. Casting `p::jsonb` per row in the
+  // outer SELECT bypasses the array-level encoding and correctly parses
+  // each element as JSON. (Verified empirically in
+  // scripts/test-jsonb-insert.ts — pattern D vs pattern C.)
+  const ids = rows.map((r) => r.hs_object_id);
+  const mods = rows.map((r) => r.hs_lastmodified);
+  const payloads = rows.map((r) => JSON.stringify(r.payload));
 
   // Table name is templated through sql() which validates against the
   // identifier syntax — combined with the HUBSPOT_TABLES allowlist above,
@@ -48,7 +52,11 @@ export async function upsertHubSpotObject(
   // only previously-unseen (id, modified) pairs insert.
   const result = await sql`
     INSERT INTO raw_hubspot.${sql(table)} (hs_object_id, hs_lastmodified, payload)
-    VALUES ${sql(tuples)}
+    SELECT id, modified, p::jsonb FROM unnest(
+      ${ids}::bigint[],
+      ${mods}::timestamptz[],
+      ${payloads}::text[]
+    ) AS t(id, modified, p)
     ON CONFLICT (hs_object_id, hs_lastmodified) DO NOTHING
   `;
   return result.count;

@@ -13,10 +13,16 @@ let _sql: NeonQueryFunction<false, false> | null = null;
 
 export function getHttpSql(): NeonQueryFunction<false, false> {
   if (_sql) return _sql;
-  const url = process.env.DATABASE_URL;
+  // Accept both naming conventions:
+  //   - DATABASE_URL (older Vercel-Postgres integration, master-plan default)
+  //   - POSTGRES_URL (current Vercel-Neon Marketplace integration, what
+  //     `vercel env pull` produces today)
+  // Use the pooled URL — Edge HTTP requests are stateless and short-lived.
+  const url = process.env.DATABASE_URL ?? process.env.POSTGRES_URL;
   if (!url) {
     throw new Error(
-      "DATABASE_URL not set — provision Neon via Vercel Marketplace, then run `vercel env pull .env.local`",
+      "No Postgres connection string found. Expected DATABASE_URL or POSTGRES_URL. " +
+        "Provision Neon via Vercel Marketplace, then run `vercel env pull --environment=production .env.local`.",
     );
   }
   _sql = neon(url);

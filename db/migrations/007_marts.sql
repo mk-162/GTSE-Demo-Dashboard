@@ -290,49 +290,8 @@ GROUP BY region, health_band;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_company_health_region_band
   ON marts.company_health (region, health_band);
 
--- ─── marts.inventory_status ────────────────────────────────────────
--- Per-SKU stock + 90-day sales velocity. Joins the latest inventory
--- snapshot to staging.sku, then layers on velocity from
--- staging.fact_order_lines.
---
--- Phase 0 §B7 confirms the per-location inventory pattern; if GTSE
--- uses a different pattern, the join from inventory_snapshots to sku
--- needs adjusting.
-CREATE MATERIALIZED VIEW IF NOT EXISTS marts.inventory_status AS
-WITH latest_snapshot AS (
-  SELECT max(snapshot_at) AS snap FROM raw_netsuite.inventory_snapshots
-),
-on_hand AS (
-  SELECT
-    item_internal_id,
-    sum(quantity_on_hand)    AS total_on_hand,
-    sum(quantity_available)  AS total_available
-  FROM raw_netsuite.inventory_snapshots, latest_snapshot
-  WHERE snapshot_at = latest_snapshot.snap
-  GROUP BY item_internal_id
-),
-velocity AS (
-  SELECT
-    sku_code,
-    sum(quantity)            AS units_sold_90d
-  FROM staging.fact_order_lines
-  WHERE order_date > CURRENT_DATE - 90
-  GROUP BY sku_code
-)
-SELECT
-  s.sku_code                                              AS sku_code,
-  s.name                                                  AS name,
-  s.category                                              AS category,
-  coalesce(oh.total_on_hand, 0)                           AS total_on_hand,
-  coalesce(oh.total_available, 0)                         AS total_available,
-  coalesce(v.units_sold_90d, 0)                           AS units_sold_90d,
-  -- Days of stock at current sales velocity. NULL if no recent sales.
-  CASE
-    WHEN coalesce(v.units_sold_90d, 0) = 0 THEN NULL
-    ELSE round((coalesce(oh.total_on_hand, 0) * 90.0) / v.units_sold_90d)::int
-  END                                                     AS days_of_stock_remaining
-FROM staging.sku s
-LEFT JOIN on_hand  oh ON oh.item_internal_id = s.ns_item_id
-LEFT JOIN velocity v  ON v.sku_code = s.sku_code;
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_status_sku ON marts.inventory_status (sku_code);
+-- marts.inventory_status was removed when Phase 1 scope was reduced to
+-- HubSpot-only (2026-05-13). It depended on raw_netsuite.inventory_snapshots
+-- + staging.sku, both also removed. The dashboard's inventory page (if
+-- exercised) falls back to mock data until Phase 2 reintroduces NetSuite.
+-- ► Restoration plan + original SQL: docs/netsuite-deferred.md

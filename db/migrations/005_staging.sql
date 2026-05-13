@@ -51,36 +51,19 @@ SELECT
   (b.payload->>'hs_lastmodifieddate')::timestamptz     AS updated_at
 FROM base b;
 
--- ─── staging.sku ───────────────────────────────────────────────────
--- One row per NetSuite item. Joined to HubSpot line items in
--- fact_order_lines via the SKU code (Phase 0 §A2 confirms the matching
--- property name).
-CREATE OR REPLACE VIEW staging.sku AS
-SELECT
-  ni.payload->>'itemid'              AS sku_code,
-  ni.internal_id                     AS ns_item_id,
-  ni.payload->>'displayname'         AS name,
-  -- PHASE 0 §B6/B7: confirm the SuiteQL field names for category +
-  -- standard cost. These are common NetSuite columns but vary by
-  -- account configuration.
-  NULLIF(ni.payload->>'class', '')   AS category,
-  NULLIF(ni.payload->>'cost', '')::numeric    AS unit_cost,
-  NULLIF(ni.payload->>'baseprice', '')::numeric AS list_price,
-  (ni.payload->>'isinactive')::boolean AS is_inactive
-FROM (
-  SELECT DISTINCT ON (internal_id) *
-  FROM raw_netsuite.items
-  ORDER BY internal_id, last_modified DESC
-) ni;
+-- staging.sku was removed when Phase 1 scope was reduced to HubSpot-only
+-- (2026-05-13). It was sourced entirely from raw_netsuite.items.
+-- ► Restoration plan + original SQL: docs/netsuite-deferred.md
 
 -- ─── staging.fact_order_lines ──────────────────────────────────────
 -- One row per line item on a closed-won deal. Joins HubSpot deals →
 -- line items via the explicit assoc_deal_line_item table, and resolves
 -- the customer via assoc_deal_company → staging.customer.
 --
--- Phase 0 §A1 confirms the deal stage value that means "closed-won /
--- shipped". Master plan defaults to 'closedwon'; some HubSpot accounts
--- use a custom pipeline with non-standard stage IDs (e.g. '11824519').
+-- The dealstage allowlist is GTSE-specific. Master plan default was
+-- `dealstage = 'closedwon'` but GTSE uses 5 custom pipelines with
+-- numeric stage IDs — see migration 010_fix_won_stage_filter.sql for
+-- the canonical list + how to regenerate it via the Pipelines API.
 CREATE OR REPLACE VIEW staging.fact_order_lines AS
 SELECT
   d.hs_object_id                          AS deal_id,
@@ -104,6 +87,11 @@ JOIN (
 ) li ON li.hs_object_id = dli.line_item_id
 JOIN raw_hubspot.assoc_deal_company dc ON dc.deal_id = d.hs_object_id
 JOIN staging.customer c ON c.hs_company_id = dc.company_id
--- PHASE 0 §A1: confirm the exact stage value. Default per master plan.
-WHERE d.payload->>'dealstage' = 'closedwon'
+WHERE d.payload->>'dealstage' IN (
+        '569083324',  -- Direct UK / Closed won
+        '569137614',  -- Inbound Ecom / Closed won
+        '751225828',  -- Direct US / Initial order received
+        '751225789',  -- Agent US / Initial order received
+        '751226601'   -- Buying Group US / Initial order received
+      )
   AND d.payload->>'closedate' IS NOT NULL;

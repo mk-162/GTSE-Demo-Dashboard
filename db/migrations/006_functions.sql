@@ -16,7 +16,10 @@ RETURNS int AS $$
     ORDER BY order_date::date
   ),
   intervals AS (
-    SELECT EXTRACT(EPOCH FROM (d - lag(d) OVER (ORDER BY d))) / 86400 AS days
+    -- date - date returns integer (days) directly in Postgres, so no
+    -- EXTRACT(EPOCH ...) / 86400 conversion is needed. Cast to numeric
+    -- so percentile_cont's WITHIN GROUP ORDER BY accepts it.
+    SELECT (d - lag(d) OVER (ORDER BY d))::numeric AS days
     FROM order_dates
   )
   SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY days)::int
@@ -84,7 +87,11 @@ RETURNS int AS $$
 $$ LANGUAGE sql IMMUTABLE;
 
 -- ─── fn_rfm_score_frequency ────────────────────────────────────────
-CREATE OR REPLACE FUNCTION marts.fn_rfm_score_frequency(p_lifetime_orders int)
+-- Takes bigint because Postgres count() aggregates return bigint, and
+-- mart definitions in 007 call this with COUNT(DISTINCT order_date).
+-- Postgres won't implicitly downcast bigint → int, so accepting bigint
+-- here avoids a `function does not exist` error at view creation time.
+CREATE OR REPLACE FUNCTION marts.fn_rfm_score_frequency(p_lifetime_orders bigint)
 RETURNS int AS $$
   SELECT CASE
     WHEN p_lifetime_orders >= 50 THEN 5

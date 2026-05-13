@@ -2,18 +2,29 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Lock, Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 const GTSE_LOGO =
   "https://cdn11.bigcommerce.com/s-v8oj4rfmzr/images/stencil/250x100/gtse_logo_1612977822__44777.original.png";
 
+const ERROR_MESSAGES: Record<string, string> = {
+  state_mismatch: "Sign-in was interrupted. Please try again.",
+  no_code: "HubSpot didn't return an authorization code. Please try again.",
+  token_exchange_failed: "Couldn't verify your HubSpot session. Please try again.",
+  token_info_failed: "Couldn't read your HubSpot identity. Please try again.",
+  wrong_hub_id:
+    "Your HubSpot account isn't part of GTSE's portal. If you believe this is wrong, contact Matt.",
+  session_create_failed:
+    "Sign-in succeeded but we couldn't create your session. Please try again or contact Matt.",
+};
+
 export default function LoginPage() {
   return (
     <React.Suspense fallback={<LoginShell />}>
-      <LoginForm />
+      <LoginContent />
     </React.Suspense>
   );
 }
@@ -30,36 +41,24 @@ function LoginShell({ children }: { children?: React.ReactNode }) {
   );
 }
 
-function LoginForm() {
-  const router = useRouter();
+function LoginContent() {
   const search = useSearchParams();
   const from = search.get("from") || "/";
+  const errorCode = search.get("error");
+  const [signingIn, setSigningIn] = React.useState(false);
 
-  const [password, setPassword] = React.useState("");
-  const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const errorMessage = errorCode
+    ? ERROR_MESSAGES[errorCode] ??
+      (errorCode.startsWith("hubspot_error:")
+        ? `HubSpot reported: ${errorCode.slice("hubspot_error:".length)}`
+        : "Sign-in failed. Please try again.")
+    : null;
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      });
-      if (!res.ok) {
-        setError("That password isn't right.");
-        setSubmitting(false);
-        return;
-      }
-      router.push(from);
-      router.refresh();
-    } catch {
-      setError("Something went wrong. Try again.");
-      setSubmitting(false);
-    }
+  function startSignIn() {
+    setSigningIn(true);
+    const url = new URL("/api/auth/hubspot/login", window.location.origin);
+    url.searchParams.set("from", from);
+    window.location.assign(url.toString());
   }
 
   return (
@@ -77,55 +76,34 @@ function LoginForm() {
             />
             <h1 className="text-2xl font-semibold tracking-tight">Customer intelligence</h1>
             <p className="text-sm text-muted-foreground">
-              Internal demo dashboard. Enter the access password to continue.
+              Sign in with your HubSpot account. Only GTSE staff can access this dashboard.
             </p>
           </div>
 
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="gtse-eyebrow text-foreground/80">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  id="password"
-                  type="password"
-                  autoFocus
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-10 w-full rounded-sm border border-input bg-background pl-9 pr-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gtse-orange"
-                  placeholder="Enter password"
-                  disabled={submitting}
-                />
-              </div>
+          {errorMessage ? (
+            <div className="rounded-sm border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {errorMessage}
             </div>
+          ) : null}
 
-            {error ? (
-              <div className="rounded-sm border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {error}
-              </div>
-            ) : null}
-
-            <Button
-              type="submit"
-              disabled={submitting || password.length === 0}
-              className="w-full bg-gtse-orange uppercase tracking-wider hover:bg-gtse-orange-dark"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Signing in
-                </>
-              ) : (
-                "Sign in"
-              )}
-            </Button>
-          </form>
+          <Button
+            type="button"
+            onClick={startSignIn}
+            disabled={signingIn}
+            className="w-full bg-gtse-orange uppercase tracking-wider hover:bg-gtse-orange-dark"
+          >
+            {signingIn ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Redirecting to HubSpot…
+              </>
+            ) : (
+              "Sign in with HubSpot"
+            )}
+          </Button>
 
           <p className="text-center text-[11px] uppercase tracking-wider text-muted-foreground">
-            Mock-up · All data is fake · GTSE Ltd
+            Authentication via HubSpot OAuth · GTSE Ltd
           </p>
         </CardContent>
       </Card>

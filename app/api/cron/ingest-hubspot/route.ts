@@ -4,7 +4,8 @@ import { pullHubSpotCompanies } from "@/lib/ingest/pull-companies";
 import { pullHubSpotDeals } from "@/lib/ingest/pull-deals";
 import { pullHubSpotLineItems } from "@/lib/ingest/pull-line-items";
 import { pullHubSpotContacts } from "@/lib/ingest/pull-contacts";
-import { pullHubSpotEngagements } from "@/lib/ingest/pull-engagements";
+// pullHubSpotEngagements is parked for Phase 2 — see comment in GET handler.
+// import { pullHubSpotEngagements } from "@/lib/ingest/pull-engagements";
 import { pullDealAssociations } from "@/lib/ingest/pull-deal-associations";
 
 export const runtime = "nodejs";
@@ -43,7 +44,18 @@ export async function GET(req: Request) {
     const deals = await pullHubSpotDeals();
     const line_items = await pullHubSpotLineItems();
     const contacts = await pullHubSpotContacts();
-    const engagements = await pullHubSpotEngagements();
+    // Engagements pull is parked for Phase 2 (2026-05-13). Our Phase 1
+    // HubSpot service key has scopes for companies/contacts/deals/
+    // line_items/owners — NOT for emails/calls/meetings/notes/tasks (which
+    // is what HubSpot calls engagements). Calling the engagements pull
+    // would 403 and fail the whole cron. marts.dim_customer's engagement
+    // columns (last_engagement_date, days_since_last_engagement,
+    // email_opens_l60d) already default to NULL — the dashboard tolerates
+    // missing engagement data. For a lighter "last activity" signal,
+    // hs_last_activity_date on Company is pulled instead (see
+    // lib/ingest/pull-companies.ts COMPANY_PROPERTIES).
+    // const engagements = await pullHubSpotEngagements();
+    const engagements = 0;
     const associations = await pullDealAssociations();
 
     const counts = {

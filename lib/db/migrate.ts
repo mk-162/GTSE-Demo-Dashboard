@@ -2,17 +2,31 @@
 // the bootstrap pattern (CREATE SCHEMA + tracking table inline) means a
 // fresh database initialises cleanly, and CREATE TABLE IF NOT EXISTS
 // makes re-runs a no-op.
+//
+// Imported by both Next.js cron routes AND the standalone `pnpm db:migrate`
+// script (which runs via tsx, not through Next.js's bundler). The
+// `import "server-only"` guard is intentionally NOT used here — it would
+// throw inside tsx. The other imports (node:fs, node:path, postgres) are
+// already client-incompatible, so client-side import accidents fail loud
+// without it.
 
-import "server-only";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import postgres from "postgres";
 
 export async function runMigrations(): Promise<{ applied: string[] }> {
-  const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+  // Accept both naming conventions — see lib/db/postgres-pool.ts for rationale.
+  // Prefer unpooled for DDL: pooled URLs have shorter statement timeouts.
+  const url =
+    process.env.DATABASE_URL_UNPOOLED ??
+    process.env.POSTGRES_URL_NON_POOLING ??
+    process.env.DATABASE_URL ??
+    process.env.POSTGRES_URL;
   if (!url) {
     throw new Error(
-      "DATABASE_URL not set — provision Neon via Vercel Marketplace, then run `vercel env pull .env.local`",
+      "No Postgres connection string found. Expected one of: " +
+        "DATABASE_URL_UNPOOLED, DATABASE_URL, POSTGRES_URL_NON_POOLING, POSTGRES_URL. " +
+        "Provision Neon via Vercel Marketplace, then run `vercel env pull --environment=production .env.local`.",
     );
   }
 

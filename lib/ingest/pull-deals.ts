@@ -18,31 +18,70 @@ const DEAL_PROPERTIES = [
   "hs_lastmodifieddate",
 ] as const;
 
-export async function pullHubSpotDeals(): Promise<number> {
+// Backfill (initial cursor = null): use basicApi to bypass the Search
+// API's 10k pagination cap. See lib/ingest/pull-companies.ts for the
+// full rationale.
+async function backfillDeals(): Promise<{ count: number; maxModified: Date }> {
   const client = getHubSpotClient();
-  const since = await getCursor("hubspot", "deals");
   let after: string | undefined;
-  let total = 0;
-  let maxModified = since ?? new Date(0);
+  let count = 0;
+  let maxModified = new Date(0);
+
+  do {
+    const page = await client.crm.deals.basicApi.getPage(
+      100,
+      after,
+      [...DEAL_PROPERTIES],
+      undefined,
+      undefined,
+      false,
+    );
+
+    const rows = page.results
+      .filter((d) => d.properties.hs_lastmodifieddate)
+      .map((d) => ({
+        hs_object_id: Number(d.id),
+        hs_lastmodified: d.properties.hs_lastmodifieddate as string,
+        payload: d.properties,
+      }));
+
+    count += await upsertHubSpotObject("deals", rows);
+
+    for (const r of rows) {
+      const ts = new Date(r.hs_lastmodified);
+      if (ts > maxModified) maxModified = ts;
+    }
+    after = page.paging?.next?.after;
+  } while (after);
+
+  return { count, maxModified };
+}
+
+// Incremental (cursor != null): use searchApi with hs_lastmodifieddate
+// filter — the filter usually keeps results under the 10k cap.
+async function incrementalDeals(since: Date): Promise<{ count: number; maxModified: Date }> {
+  const client = getHubSpotClient();
+  let after: string | undefined;
+  let count = 0;
+  let maxModified = since;
 
   do {
     const page = await client.crm.deals.searchApi.doSearch({
-      filterGroups: since
-        ? [
+      filterGroups: [
+        {
+          filters: [
             {
-              filters: [
-                {
-                  propertyName: "hs_lastmodifieddate",
-                  operator: FilterOperatorEnum.Gte,
-                  value: since.getTime().toString(),
-                },
-              ],
+              propertyName: "hs_lastmodifieddate",
+              operator: FilterOperatorEnum.Gte,
+              value: since.getTime().toString(),
             },
-          ]
-        : [],
+          ],
+        },
+      ],
       properties: [...DEAL_PROPERTIES],
+      sorts: [],
       limit: 100,
-      after,
+      after: after ?? "0",
     });
 
     const rows = page.results
@@ -53,7 +92,7 @@ export async function pullHubSpotDeals(): Promise<number> {
         payload: d.properties,
       }));
 
-    total += await upsertHubSpotObject("deals", rows);
+    count += await upsertHubSpotObject("deals", rows);
 
     for (const r of rows) {
       const ts = new Date(r.hs_lastmodified);
@@ -62,6 +101,13 @@ export async function pullHubSpotDeals(): Promise<number> {
     after = page.paging?.next?.after;
   } while (after);
 
-  if (total > 0) await setCursor("hubspot", "deals", maxModified);
-  return total;
+  return { count, maxModified };
+}
+
+export async function pullHubSpotDeals(): Promise<number> {
+  const since = await getCursor("hubspot", "deals");
+  const { count, maxModified } =
+    since === null ? await backfillDeals() : await incrementalDeals(since);
+  if (count > 0) await setCursor("hubspot", "deals", maxModified);
+  return count;
 }

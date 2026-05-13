@@ -25,7 +25,7 @@ export async function GET(req: Request) {
       "Pre-aggregated customer intelligence for GTSE Hub UK + US. " +
       "All data is mocked in this demo. In production, the same surface " +
       "is backed by a Vercel Postgres warehouse populated by nightly " +
-      "Vercel Cron jobs from HubSpot and NetSuite.",
+      "Vercel Cron jobs from HubSpot.",
     auth: {
       method: "Bearer token",
       header: "Authorization: Bearer <token>",

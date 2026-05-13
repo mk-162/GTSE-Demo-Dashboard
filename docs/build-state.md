@@ -1,8 +1,10 @@
 # Project Whale — Build state
 
-**As of 2026-05-08 evening.** This doc tracks where the build is, what's dormant, and what tomorrow's first action is.
+**As of 2026-05-13 afternoon.** This doc tracks where the build is, what's dormant, and what the next concrete action is.
 
-**Read order on resume:** this doc → [`session-2026-05-08.md`](./session-2026-05-08.md) (long-form decisions log) → [`runbook.md`](./runbook.md) (operational procedures) → master plan (`C:\AI_Project\GTSE\project-whale-master-plan.md`, the technical contract). Then `git log --oneline -5` to confirm the commits below are still on `main`.
+**Major scope change this session: NetSuite was cut from Phase 1.** HubSpot is now the sole data source. See `docs/netsuite-deferred.md` for the full restoration plan when NetSuite returns in Phase 2.
+
+**Read order on resume:** this doc → `docs/netsuite-deferred.md` (Phase 2 restoration plan) → `docs/runbook.md` (operational procedures) → master plan (`C:\AI_Project\GTSE\project-whale-master-plan.md`, the technical contract — currently still references NetSuite, needs Phase 2 alignment pass). Then `git log --oneline -10` to confirm the commits below are still on `main`.
 
 ---
 
@@ -10,109 +12,127 @@
 
 | Milestone | Status | What's there |
 |---|---|---|
-| **M1 — Server data facade** | ✅ Live in production | `lib/data/` with DataLayer interface + memoryImpl + postgres-{edge,node} stubs. 18/18 contract tests green. All pages refactored to Server Component shell + Client Component view. Region migrated to cookie. |
-| **M2 — Neon + HubSpot ingestion** | 🟡 Dormant — code committed, not running | `lib/db/{neon-http,postgres-pool,migrate}.ts`. Migrations 001-004 (schemas, raw_hubspot, app, raw_netsuite). `lib/ingest/*` HubSpot pulls + associations. `/api/cron/ingest-hubspot` route. Cron not scheduled in `vercel.json`; auth-gated so dormant. |
-| **M3 — NetSuite ingestion** | ❌ Not started | Auth path is a Phase 0 §B1 decision. Writing OAuth 2.0 vs TBA on a guess wastes effort. |
-| **M4 — Marts + transform** | 🟡 Dormant — code committed, not running | Migrations 005-008 (staging views, SQL functions, 8 marts, retention cleanup). `/api/cron/transform` route. Same dormant-by-default treatment as M2. |
-| **M5 — Postgres facade impls + security + cutover** | 🟡 Postgres impls dormant; security + cutover not started | `lib/data/impl/postgres-{node,edge}.ts` written — full DataLayer impl against `marts.*` for both Node (porsager/postgres) and Edge (Neon HTTP) runtimes. Contract tests gated on `TEST_DATABASE_URL` so they skip cleanly without DB. Security pass (8 items §10.3) and cutover gated on populated marts. |
-| **M6 — Insights cron** | ❌ Not started (one polish item shipped) | Settings page copy fix (Airbyte/BigCommerce → HubSpot/NetSuite via Vercel Cron) merged in `0b01550`. Insights cron itself defers until M5 cutover so the dashboard reads from `app.dashboard_insights`. |
+| **M1 — Server data facade** | ✅ Live in production | `lib/data/` with DataLayer interface + memoryImpl + postgres-{edge,node} impls. 18/18 contract tests green. All pages on Server Component shell + Client Component view. Region migrated to cookie. |
+| **M2 — Neon + HubSpot ingestion** | 🟡 Infra live, ingest blocked on token | Neon `neon-cyclamen-basket` provisioned and connected. All 8 migrations applied. `lib/db/{neon-http,postgres-pool,migrate}.ts` accept both `DATABASE_*` and `POSTGRES_*` naming. `lib/ingest/pull-*.ts` modules in place. `/api/cron/ingest-hubspot` route ready. **Blocked:** the HubSpot token in `.env.local` returns 401 — needs verification that rotation actually took effect in HubSpot. |
+| **M3 — NetSuite ingestion** | ⏸️ Deferred to Phase 2 | Cut from Phase 1 scope on 2026-05-13 to reduce complexity and integration risk. Five files modified to remove NetSuite plumbing; six "Phase 2 hook" references intentionally retained. Full restoration record in `docs/netsuite-deferred.md`. |
+| **M4 — Marts + transform** | 🟡 Marts created (empty), transform untested | Migrations 005-008 applied. `marts.dim_customer`, `marts.whales`, `marts.lapsed`, `marts.reorder_due`, `marts.kpi_overview`, `marts.rfm_segments`, `marts.company_health` exist as empty materialized views. `marts.inventory_status` removed with NetSuite cut. Transform cron route untouched (will populate marts once raw HubSpot data lands). |
+| **M5 — Auth + cutover** | 🔴 Decision pending | Original plan was Postgres facade impl + 8-item security pass + cutover. Reframed: auth approach is now a decision Freddie needs to weigh in on — current shared-password gate isn't suitable for live customer data. Two options proposed: (A) HubSpot OAuth using existing CRM identities, (B) magic-link via Resend with email allowlist. Recommendation: A. ~4-5 hrs implementation once decided. |
+| **M6 — Insights cron** | ❌ Not started | Defers until marts are populated (after M2 ingest works + M4 transform runs). |
 
-**Dormant ≠ untested.** Every dormant commit passes `pnpm typecheck`, `pnpm test` (18/18), and `pnpm build`. The cron routes return 401 if `CRON_SECRET` is unset (they will be, in production until set), so accidental invocation is harmless.
+**Auth caveat:** the dashboard currently uses a single shared password (`WHALE_PASSWORD` env var, fallback hardcoded as `gtse2026` in middleware.ts). Vercel's $150/mo "Advanced Deployment Protection" was rejected — the engineering cost of HubSpot OAuth pays for itself inside one year AND adds per-user accountability that Vercel's option doesn't.
+
+**Dormant ≠ untested.** Every commit still passes `pnpm typecheck`, `pnpm test` (18/18), and `pnpm build`. Cron routes still return 401 without `CRON_SECRET`.
 
 ---
 
 ## Phase 0 status
 
-**Outstanding.** Matt is trying to answer tomorrow. Until then, M2/M4 stay dormant.
-
-- The questions live in two places:
-  - `C:\AI_Project\GTSE\phase-0-questions.md` — concise, paste-ready stakeholder hand-off (~2 pages, split by audience)
-  - `docs/phase-0-question-guide.md` (this repo) — comprehensive interview guide with capture structure (788 lines)
-- The answers will land in `C:\AI_Project\GTSE\phase-0-findings.md`. **That file does not exist yet** — its absence is the gate signal.
-- Matt explicitly authorised progressing dormant infra without Phase 0 answers (see commits `6b712ec` and `0b01550`). All Phase-0-dependent strings in the codebase are marked with `// PHASE 0:` comments — search for these tomorrow:
+**Most NetSuite-specific Phase 0 questions are moot** now that NetSuite is deferred to Phase 2. Remaining HubSpot-specific markers in the codebase:
 
 ```bash
 grep -rn "// PHASE 0:" lib/ db/migrations/
 grep -rn "-- PHASE 0" db/migrations/
 ```
 
-There are roughly a dozen markers across `lib/ingest/pull-*.ts` and `db/migrations/005_staging.sql`. Most are one-line property-name confirmations.
+Active markers (need answers before live data goes through):
+- **§A1** — exact HubSpot deal stage value meaning "closed-won / shipped." Defaults to `'closedwon'` in `staging.fact_order_lines`.
+- **§A2** — HubSpot line-item property carrying SKU code. Defaults to `hs_sku` in `pull-line-items.ts` and `staging.fact_order_lines`.
+- **§A3** — confirm HubSpot Company property containing region (UK/US). Currently derived from `country` in `staging.customer`.
+- **§A4** — confirm `industry` property values + taxonomy (HubSpot standard / GTSE custom / SIC).
+
+Most of these are one-line property-name confirmations once GTSE's HubSpot configuration is inspected. Deferred NetSuite markers (§A6, §B6, §B7) are now Phase 2 concerns — see `docs/netsuite-deferred.md`.
 
 ---
 
-## Three judgment calls flagged in commit `0b01550`
+## Judgment calls flagged for review
 
-These are areas where I made a defensible-but-reviewable decision in the M4 SQL. Worth a glance tomorrow before activating:
+1. **`marts.dim_customer`'s engagement-derived columns surface as `NULL`.** `last_engagement_date`, `email_opens_l60d`, `active_contacts` are placeholder NULLs. Engagement ingestion is **parked for Phase 2** (2026-05-13) because the HubSpot service key was scoped for companies/contacts/deals/line_items/owners only — granting `crm.objects.{emails,calls,meetings,notes,tasks}.read` would be needed first. Phase 1 substitute: `hs_last_activity_date` is now pulled on Company records (`pull-companies.ts`), giving a lighter "last activity" signal without engagement scopes. See `lib/ingest/pull-engagements.ts` for the full Phase 2 restoration plan.
 
-1. **`marts.dim_customer`'s engagement-derived columns surface as `NULL`.** `last_engagement_date`, `email_opens_l60d`, `active_contacts` need a `staging.engagement` view that depends on Phase 0 confirming engagement property names. Until then, `dim_customer` returns NULL for these. The dashboard's account detail page tolerates NULL — renders "—" rather than failing. Real fix: M2.5, write `staging.engagement` view + add `LEFT JOIN` to `dim_customer`.
+2. **`top_3_reorder_skus` and `top_3_cross_sell_skus` are `ARRAY[]::text[]`.** Per-customer SKU aggregation + peer-basket lift analysis is non-trivial SQL. Placeholder empty arrays keep the type stable. Real fix: dedicated `marts.customer_top_skus` view + `marts.cross_sell_candidates` view.
 
-2. **`top_3_reorder_skus` and `top_3_cross_sell_skus` are `ARRAY[]::text[]`.** Per-customer SKU aggregation + peer-basket lift analysis is non-trivial SQL. For tonight, placeholder empty arrays keep the type stable. Real fix: dedicated `marts.customer_top_skus` view aggregating from `staging.fact_order_lines` + a `marts.cross_sell_candidates` view doing the peer-basket join.
+3. **NetSuite removal — six "Phase 2 hooks" intentionally retained.** The `raw_netsuite` schema (empty), `ns_customer_id` NULL passthrough columns in `staging.customer` and `marts.dim_customer`, and the `netsuite_customer_id` reference in `pull-companies.ts`'s property list are all preserved deliberately so Phase 2 restoration is a smaller diff. **Do not remove these as part of dead-code cleanup.** See `docs/netsuite-deferred.md` for the full list.
 
-3. **Engagements aren't pruned by retention.** `app.fn_retention_cleanup()` prunes `ingestion_runs` (90 days), `api_access_log` (90 days), and `inventory_snapshots` (180 days). Engagements stay indefinitely because PII is already stripped at ingestion (master plan §10.3 item 5: email body + attachment IDs gone before they hit the DB). If GDPR comes calling we should add explicit per-record deletion via a separate function; blanket pruning would lose useful long-tail signal.
+4. **Engagements aren't pruned by retention.** `app.fn_retention_cleanup()` now prunes only `ingestion_runs` (90 days) and `api_access_log` (90 days). The NetSuite inventory snapshot pruning was removed with the NetSuite cut. Engagements (if ever ingested in Phase 2) stay indefinitely because PII is already stripped at ingestion. If GDPR comes calling we'd add explicit per-record deletion.
 
 ---
 
 ## Deferred (with reasons)
 
-| Item | Why deferred |
+| Item | Status / why deferred |
 |---|---|
-| **Neon provisioning** | Billed resource (~£12-16/month). Matt's one-click in Vercel Marketplace. |
-| **HubSpot token + CRON_SECRET** | Matt generates and sets on Vercel. |
-| **`vercel.json` cron entries** | Adding the schedule activates the cron. Without env vars set, scheduled cron would 500 noisily at 02:00 UTC. Activate when Neon + tokens land. |
-| **NetSuite (M3)** | Auth path is Phase 0 §B1 decision. |
-| **M5 security partial** | `WHALE_API_TOKEN` fail-closed and CORS allow-list deploy-break the existing demo if env vars aren't set first. Wire up alongside M5 cutover. |
-| **Insights cron (M6 §11.1)** | Writes to `app.dashboard_insights`; nothing reads from there until M5 cutover. Premature. |
+| **Neon provisioning** | ✅ Done. `neon-cyclamen-basket` connected to project. |
+| **HubSpot token** | 🟡 Created but currently 401s — rotation didn't take effect or token in `.env.local` is stale. Needs Matt to verify in HubSpot. |
+| **`CRON_SECRET`** | ❌ Not yet generated. Needed before triggering the cron route via HTTP. Generate with `node -e "console.log(crypto.randomBytes(32).toString('hex'))"` and add to Vercel + `.env.local`. |
+| **`vercel.json` cron entries** | ❌ Wait until ingest works manually + auth is in place. Activating crons before auth = real customer data hitting the warehouse behind a shared password. |
+| **NetSuite (M3)** | ⏸️ Deferred to Phase 2. See `docs/netsuite-deferred.md`. |
+| **Auth upgrade (M5 part 1)** | 🔴 Decision pending Freddie. Recommendation: HubSpot OAuth. |
+| **Postgres facade cutover (M5 part 2)** | Wait until auth is in place + marts are populated. Flip `DATA_SOURCE` env from `memory` to `postgres`. |
+| **Insights cron (M6)** | Wait until marts are populated. |
 
 ---
 
-## Tomorrow's tightest path to CP-2
+## Next concrete actions
 
-CP-2 = raw HubSpot data flowing in `raw_hubspot.*`. Total ~30 minutes from a clean Phase 0 start, *if* Matt's inputs are ready:
+The build is gated on three things, in order:
 
-1. **Matt provisions Neon** (Vercel → Storage → Marketplace → Neon → Add). ~5 min. Auto-sets `DATABASE_URL` + `DATABASE_URL_UNPOOLED`.
-2. **Matt sets `HUBSPOT_PRIVATE_APP_TOKEN` + `CRON_SECRET` on Vercel.** ~5 min. (Generate `CRON_SECRET` with `openssl rand -hex 16`.)
-3. **Patch `// PHASE 0:` markers** to actual values from `phase-0-findings.md`. ~10 min. Mostly one-line property-name swaps in `lib/ingest/pull-companies.ts` and `db/migrations/005_staging.sql`.
-4. **Add cron entries to `vercel.json`** (just M2's HubSpot for now; transform comes after CP-2):
-   ```json
-   { "crons": [
-     { "path": "/api/cron/ingest-hubspot", "schedule": "0 2 * * *" }
-   ] }
-   ```
-   ~2 min. Push.
-5. **Apply migrations locally** to confirm the SQL is sound:
-   ```
-   vercel env pull .env.local
-   pnpm db:migrate
-   ```
-   ~30 sec.
-6. **Trigger ingestion manually** from local against production:
-   ```
-   curl -H "Authorization: Bearer $CRON_SECRET" \
-     https://gtse-demo-dashboard.vercel.app/api/cron/ingest-hubspot
-   ```
-   ~3-5 min for first run. Watch `app.ingestion_runs` for `status='success'`.
-7. **Spot-check** raw_hubspot.companies for row count + a known account name. ~5 min.
+### 1. Fix HubSpot token (Matt's action, ~5 min)
+Token in `.env.local` is `pat-eu1-67ef3dc9-...` — same as the value originally pasted in chat. HubSpot returns 401 on direct curl, suggesting the rotation didn't take effect or `.env.local` has the pre-rotation value. To unblock:
 
-**That gets to "raw HubSpot data flowing." After that:**
-- **NetSuite (M3)** — once Phase 0 §B1 selects an auth path, ~3-4 hours to write the client + 6 pull modules + cron.
-- **Activate transform cron** — add `vercel.json` entry, manually trigger to populate marts. ~5 min.
-- **CP-3** spot-check 3 accounts in `marts.dim_customer` vs HubSpot UI per master plan §9.5.
-- **CP-4 contract tests** — set `TEST_DATABASE_URL` to a Neon dev branch with populated marts, run `pnpm test`. Validates `postgresNodeImpl` and `postgresEdgeImpl` produce the same shape as `memoryImpl`. ~5 min if marts are clean.
+- Open HubSpot → Legacy Apps → "Project Whale — Read Only" → view current active token
+- If it matches what's in `.env.local`, click Rotate / Reset to actually regenerate
+- Paste the active value into `.env.local` (replace the existing line)
+- Also re-add to Vercel: `vercel env rm HUBSPOT_PRIVATE_APP_TOKEN production --yes; vercel env add HUBSPOT_PRIVATE_APP_TOKEN production` (interactive paste at prompt)
+
+Verify with: `pnpm tsx --env-file=.env.local scripts/test-hubspot-token.ts` — expect HTTP 200.
+
+### 2. Smoke test ingest + transform (~15 min, mostly automated)
+Once the token returns 200:
+
+```powershell
+# Pull a fresh batch of companies into raw_hubspot
+pnpm tsx --node-options="--conditions=react-server" --env-file=.env.local scripts/test-ingest-companies.ts
+```
+
+Then trigger the transform cron locally (after generating CRON_SECRET).
+
+### 3. Decide on auth (Freddie's call)
+Two options on the table:
+- **HubSpot OAuth** — sign in with existing HubSpot accounts (~4-5 hrs implementation)
+- **Magic-link email auth** via Resend with `@gtse.com` allowlist (~2-3 hrs)
+
+Either gets implemented before `DATA_SOURCE` is flipped to `postgres` for the deployed app.
+
+### Then: cutover sequence
+1. Implement chosen auth path
+2. Test thoroughly with internal users
+3. Manually trigger first full HubSpot ingest against Neon
+4. Manually trigger transform — verify all 7 marts populate
+5. Flip `DATA_SOURCE=postgres` env var
+6. Add cron schedule entries (`vercel.json`)
+7. Rotate `WHALE_PASSWORD` (already burnt in committed planning docs)
+8. Invite users
 
 ---
 
-## Repo state at end of 2026-05-08
+## Repo state
 
-```
-$ git log --oneline -5 main
-433d79b M5 postgres facade impls (dormant): full DataLayer for both runtimes
-9fb7bee Add docs/build-state.md — milestone snapshot for resume
-0b01550 M4 SQL + transform cron + runbook + db:migrate CLI (all dormant)
-6b712ec M2 infra (dormant): Postgres clients, schema migrations, HubSpot ingestion
-f1ffc96 Milestone 1: server data facade with mock implementation
-```
+**`main` deploys to <https://gtse-demo-dashboard.vercel.app>** automatically. Current user-visible state: still the demo dashboard reading mock data (`DATA_SOURCE=memory`), behind the shared-password gate. Real data is in Neon but not yet exposed to the dashboard.
 
-**`main` deploys to <https://gtse-demo-dashboard.vercel.app>** automatically. The only user-visible change since the start of 2026-05-08 is the Settings page "Direct database access" tab now mentions HubSpot+NetSuite via Vercel Cron instead of Airbyte+BigCommerce. Everything else is dormant infrastructure that hasn't activated.
+Files materially changed this session (2026-05-13):
+- `db/migrations/004_raw_netsuite.sql` → stubbed
+- `db/migrations/005_staging.sql` → removed `staging.sku`
+- `db/migrations/006_functions.sql` → fixed EXTRACT bug + bigint signature
+- `db/migrations/007_marts.sql` → removed `marts.inventory_status`
+- `db/migrations/008_retention.sql` → removed NetSuite snapshot cleanup
+- `app/api/cron/ingest-hubspot/route.ts` → commented out engagement pull
+- `app/api/cron/transform/route.ts` → removed `inventory_status` from refresh list
+- `app/settings/page.tsx`, `app/api/v1/route.ts` → "HubSpot and NetSuite" → "HubSpot"
+- `lib/db/{postgres-pool,neon-http,migrate}.ts` + `scripts/{inspect-db,migrate}.ts` → accept both `DATABASE_*` and `POSTGRES_*` naming
+- `lib/db/migrate.ts` → removed `server-only` import (for tsx compatibility)
+- `lib/ingest/pull-companies.ts` → added `hs_last_activity_date`
+- `lib/ingest/pull-engagements.ts` → added "PARKED FOR PHASE 2" header
+- New: `scripts/reset-db.ts`, `scripts/test-ingest-companies.ts`, `scripts/test-hubspot-token.ts`
+- New: `docs/netsuite-deferred.md`
 
 ---
 
@@ -130,4 +150,5 @@ f1ffc96 Milestone 1: server data facade with mock implementation
 
 | Date | Change |
 |---|---|
+| 2026-05-13 | **NetSuite cut from Phase 1**, deferred to Phase 2 (`docs/netsuite-deferred.md`). Neon `neon-cyclamen-basket` connected to project, all 8 migrations applied (after fixing 2 SQL bugs in 006 + dropping NetSuite-dependent objects from 007 and 008). HubSpot Private App created but current token returns 401 — rotation issue. Engagement ingest parked for Phase 2 (scope mismatch). Auth upgrade decision pending Freddie. Reframed M5 around auth strategy. |
 | 2026-05-08 | Initial state-of-play doc covering M1 (live), M2/M4 (dormant), M3/M5/M6 (not started). Three judgment calls flagged for review. Tomorrow's CP-2 path documented. |

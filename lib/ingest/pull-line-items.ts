@@ -18,31 +18,67 @@ const LINE_ITEM_PROPERTIES = [
   "hs_lastmodifieddate",
 ] as const;
 
-export async function pullHubSpotLineItems(): Promise<number> {
+// Backfill: see lib/ingest/pull-companies.ts for the rationale on why
+// we use basicApi for initial pull rather than searchApi.
+async function backfillLineItems(): Promise<{ count: number; maxModified: Date }> {
   const client = getHubSpotClient();
-  const since = await getCursor("hubspot", "line_items");
   let after: string | undefined;
-  let total = 0;
-  let maxModified = since ?? new Date(0);
+  let count = 0;
+  let maxModified = new Date(0);
+
+  do {
+    const page = await client.crm.lineItems.basicApi.getPage(
+      100,
+      after,
+      [...LINE_ITEM_PROPERTIES],
+      undefined,
+      undefined,
+      false,
+    );
+
+    const rows = page.results
+      .filter((li) => li.properties.hs_lastmodifieddate)
+      .map((li) => ({
+        hs_object_id: Number(li.id),
+        hs_lastmodified: li.properties.hs_lastmodifieddate as string,
+        payload: li.properties,
+      }));
+
+    count += await upsertHubSpotObject("line_items", rows);
+
+    for (const r of rows) {
+      const ts = new Date(r.hs_lastmodified);
+      if (ts > maxModified) maxModified = ts;
+    }
+    after = page.paging?.next?.after;
+  } while (after);
+
+  return { count, maxModified };
+}
+
+async function incrementalLineItems(since: Date): Promise<{ count: number; maxModified: Date }> {
+  const client = getHubSpotClient();
+  let after: string | undefined;
+  let count = 0;
+  let maxModified = since;
 
   do {
     const page = await client.crm.lineItems.searchApi.doSearch({
-      filterGroups: since
-        ? [
+      filterGroups: [
+        {
+          filters: [
             {
-              filters: [
-                {
-                  propertyName: "hs_lastmodifieddate",
-                  operator: FilterOperatorEnum.Gte,
-                  value: since.getTime().toString(),
-                },
-              ],
+              propertyName: "hs_lastmodifieddate",
+              operator: FilterOperatorEnum.Gte,
+              value: since.getTime().toString(),
             },
-          ]
-        : [],
+          ],
+        },
+      ],
       properties: [...LINE_ITEM_PROPERTIES],
+      sorts: [],
       limit: 100,
-      after,
+      after: after ?? "0",
     });
 
     const rows = page.results
@@ -53,7 +89,7 @@ export async function pullHubSpotLineItems(): Promise<number> {
         payload: li.properties,
       }));
 
-    total += await upsertHubSpotObject("line_items", rows);
+    count += await upsertHubSpotObject("line_items", rows);
 
     for (const r of rows) {
       const ts = new Date(r.hs_lastmodified);
@@ -62,6 +98,13 @@ export async function pullHubSpotLineItems(): Promise<number> {
     after = page.paging?.next?.after;
   } while (after);
 
-  if (total > 0) await setCursor("hubspot", "line_items", maxModified);
-  return total;
+  return { count, maxModified };
+}
+
+export async function pullHubSpotLineItems(): Promise<number> {
+  const since = await getCursor("hubspot", "line_items");
+  const { count, maxModified } =
+    since === null ? await backfillLineItems() : await incrementalLineItems(since);
+  if (count > 0) await setCursor("hubspot", "line_items", maxModified);
+  return count;
 }

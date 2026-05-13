@@ -17,16 +17,37 @@ const GTSE_LOGO =
 // Routes that render WITHOUT the dashboard chrome (sidebar + header).
 const BARE_ROUTES = new Set(["/login"]);
 
+type SessionUser = { id: string; email: string; name: string | null };
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isBare = pathname ? BARE_ROUTES.has(pathname) : false;
 
   const [chatOpen, setChatOpen] = React.useState(false);
+  const [user, setUser] = React.useState<SessionUser | null>(null);
+
+  React.useEffect(() => {
+    if (isBare) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        if (!res.ok || cancelled) return;
+        const body = (await res.json()) as { authenticated: boolean; user?: SessionUser };
+        if (body.authenticated && body.user) setUser(body.user);
+      } catch {
+        // Non-fatal — the header just won't show the name.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isBare]);
 
   if (isBare) return <>{children}</>;
 
   async function signOut() {
-    await fetch("/api/auth", { method: "DELETE" });
+    await fetch("/api/auth/session", { method: "DELETE" });
     window.location.href = "/login";
   }
 
@@ -89,12 +110,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <span className="hidden text-xs font-semibold uppercase tracking-wider md:inline">gBot</span>
               </Button>
               <ThemeToggle />
+              {user ? (
+                <span
+                  className="hidden text-xs font-medium text-muted-foreground md:inline"
+                  title={user.email}
+                >
+                  {user.name ?? user.email}
+                </span>
+              ) : null}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={signOut}
                 aria-label="Sign out"
-                title="Sign out"
+                title={user ? `Sign out (${user.email})` : "Sign out"}
               >
                 <LogOut className="h-4 w-4" />
               </Button>

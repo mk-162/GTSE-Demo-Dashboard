@@ -4,11 +4,36 @@ import { getHubSpotClient } from "./hubspot-client";
 import { upsertHubSpotObject } from "./upsert";
 import { getCursor, setCursor } from "./cursor";
 
-// PHASE 0: confirm the Sensitive Data flag is OFF (§A8). If it's ON,
-// engagement reads return 403 and the cron will fail. Phase 0 also
-// flagged that >500k engagements requires per-object-type splitting
-// (§A7); this implementation pulls all engagement types together — fine
-// for typical volumes, will need partition if Phase 0 says we're over.
+// ═══════════════════════════════════════════════════════════════════
+//  PARKED FOR PHASE 2 (2026-05-13)
+// ═══════════════════════════════════════════════════════════════════
+// Not called from app/api/cron/ingest-hubspot/route.ts in Phase 1. Our
+// HubSpot service key has read scopes for companies / contacts / deals /
+// line_items / owners — but NOT for the engagement object types
+// (emails / calls / meetings / notes / tasks). Calling this function
+// would 403.
+//
+// To re-enable in Phase 2:
+//   1. Add these scopes to the HubSpot service key:
+//        crm.objects.emails.read
+//        crm.objects.calls.read
+//        crm.objects.meetings.read
+//        crm.objects.notes.read
+//        crm.objects.tasks.read
+//   2. Uncomment the import + call in app/api/cron/ingest-hubspot/route.ts
+//   3. Build out staging.engagement view + dim_customer engagement
+//      aggregations (currently NULL placeholders in migration 007).
+//
+// Phase 1 substitute: hs_last_activity_date on Company is pulled in
+// pull-companies.ts — gives a lighter "days since last activity" signal
+// without engagement-object scopes.
+//
+// PHASE 0 — when restoring: confirm the Sensitive Data flag is OFF
+// (§A8). If it's ON, engagement reads return 403 even with the right
+// scopes. Phase 0 also flagged that >500k engagements requires per-
+// object-type splitting (§A7); this implementation pulls all engagement
+// types together — fine for typical volumes, will need partition if
+// Phase 0 says we're over.
 const ENGAGEMENT_PROPERTIES = [
   "hs_engagement_type",
   "hs_timestamp",
