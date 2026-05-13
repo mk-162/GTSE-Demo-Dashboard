@@ -462,17 +462,20 @@ const impl: DataLayer = {
     };
 
     const sql = getPool();
+    // staging.sku was removed when Phase 1 dropped NetSuite (2026-05-13)
+    // — see docs/netsuite-deferred.md. sku_name comes back as NULL for
+    // now; the dashboard's account page renders "—" when name is null.
+    // Restore the LEFT JOIN to staging.sku when NetSuite returns.
     const rows = await sql<LineRow[]>`
       SELECT
         fol.deal_id,
         fol.order_date,
         fol.sku_code,
-        s.name AS sku_name,
+        NULL::text AS sku_name,
         fol.quantity,
         fol.unit_price,
         fol.line_amount
       FROM staging.fact_order_lines fol
-      LEFT JOIN staging.sku s ON s.sku_code = fol.sku_code
       WHERE fol.customer_id = ${companyId}
       ORDER BY fol.order_date ASC, fol.deal_id ASC
     `;

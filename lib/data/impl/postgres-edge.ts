@@ -382,17 +382,19 @@ const impl: DataLayer = {
       unit_price: string;
       line_amount: string;
     };
+    // staging.sku was removed when Phase 1 dropped NetSuite (2026-05-13).
+    // sku_name is NULL for now; UI renders "—". Restore the JOIN when
+    // NetSuite returns — see docs/netsuite-deferred.md.
     const rows = (await getHttpSql().query(
       `SELECT
          fol.deal_id,
          fol.order_date,
          fol.sku_code,
-         s.name AS sku_name,
+         NULL::text AS sku_name,
          fol.quantity,
          fol.unit_price,
          fol.line_amount
        FROM staging.fact_order_lines fol
-       LEFT JOIN staging.sku s ON s.sku_code = fol.sku_code
        WHERE fol.customer_id = $1
        ORDER BY fol.order_date ASC, fol.deal_id ASC`,
       [companyId],
